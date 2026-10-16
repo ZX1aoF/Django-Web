@@ -1187,6 +1187,8 @@ input[type="radio"] {
 
 .auth {
   display: grid;
+  /* 窄屏两行：墨面按内容高，纸面吃掉剩余高度，不留空白 */
+  grid-template-rows: auto minmax(0, 1fr);
   min-block-size: 100dvh;
 }
 
@@ -1435,6 +1437,7 @@ input[type="radio"] {
 @media (min-width: 56rem) {
   .auth {
     grid-template-columns: 21rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .auth__ink {
