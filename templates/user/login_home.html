@@ -1,12 +1,26 @@
-{% extends "user/background.html" %}
-{% block login_container %}
-<div class="login-kind student-login-button">
-    <a href="{% url 'login_detail' 'student'%}">学生登录</a>
-</div>
-<div class="login-kind administrator-login-button">
-    <a href="{% url 'login_detail' 'administrator'%}">管理员登录</a>
-</div>
-<div class="login-kind administrator-login-button">
-    <a href="{% url 'register'%}">注册</a>
+{% extends "user/auth_base.html" %}
+
+{% block title %}登录 · 语文素材管理系统{% endblock %}
+
+{% block headline %}按身份进入系统{% endblock %}
+
+{% block points %}
+<li>学生：浏览素材库、投稿、跟进审核进度</li>
+<li>管理员：录入素材、审核投稿</li>
+{% endblock %}
+
+{% block panel %}
+<div class="card card--pad-lg">
+    <h2 class="h-card">选择登录身份</h2>
+    <p class="lead mt-3">两种身份看到的素材范围和可执行的操作不同。</p>
+
+    <div class="choice-grid">
+        <a class="choice" href="{% url 'login_detail' 'student' %}">我是学生</a>
+        <a class="choice" href="{% url 'login_detail' 'administrator' %}">我是管理员</a>
+    </div>
+
+    <div class="form-actions">
+        <a class="btn btn--link" href="{% url 'register' %}">还没有账号？去注册</a>
+    </div>
 </div>
 {% endblock %}

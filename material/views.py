@@ -1,7 +1,7 @@
 from functools import wraps
 
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -75,11 +75,15 @@ def require_person(administrator_only=False):
     return decorator
 
 
-def base_context(request, **extra):
-    """素材库各页面共用的上下文：nav.html 需要 info 与 is_administrator。"""
+def base_context(request, nav=None, **extra):
+    """素材库各页面共用的上下文。
+
+    ``nav`` 用来标记侧边导航当前高亮哪一项（library / create / mine / pending）。
+    """
     context = {
         "info": {"name": request.person.name, "kind": request.kind},
         "is_administrator": request.kind == KIND_ADMINISTRATOR,
+        "nav": nav,
     }
 
     if request.kind == KIND_ADMINISTRATOR:
@@ -116,6 +120,43 @@ def can_manage(material, kind, person):
     return material.is_owned_by(person, kind) and material.status in STUDENT_EDITABLE_STATUSES
 
 
+def build_stats(kind, person):
+    """列表页顶部的统计卡。
+
+    管理员看全局，学生看「素材库 + 自己的投稿」。
+    两边都只用一次聚合查询算出全部计数。
+    """
+    if kind == KIND_ADMINISTRATOR:
+        counts = Material.objects.aggregate(
+            total=Count("id"),
+            pending=Count("id", filter=Q(status=Material.Status.PENDING)),
+            approved=Count("id", filter=Q(status=Material.Status.APPROVED)),
+            rejected=Count("id", filter=Q(status=Material.Status.REJECTED)),
+        )
+        return [
+            {"label": "素材总数", "value": counts["total"], "primary": True},
+            {"label": "待审核", "value": counts["pending"]},
+            {"label": "已通过", "value": counts["approved"]},
+            {"label": "已驳回", "value": counts["rejected"]},
+        ]
+
+    counts = Material.objects.filter(submitted_by=person).aggregate(
+        total=Count("id"),
+        pending=Count("id", filter=Q(status=Material.Status.PENDING)),
+        approved=Count("id", filter=Q(status=Material.Status.APPROVED)),
+    )
+    return [
+        {
+            "label": "素材库",
+            "value": Material.objects.filter(status=Material.Status.APPROVED).count(),
+            "primary": True,
+        },
+        {"label": "我的投稿", "value": counts["total"]},
+        {"label": "待审核", "value": counts["pending"]},
+        {"label": "已通过", "value": counts["approved"]},
+    ]
+
+
 @require_person()
 def home(request, kind):
     """素材库：按分类 / 关键词 / 状态筛选，学生可以只看自己的投稿。"""
@@ -150,9 +191,19 @@ def home(request, kind):
     for material in materials:
         material.can_manage = can_manage(material, kind, request.person)
 
+    # 侧边导航高亮：只看自己的投稿 / 管理员的待审核队列 / 其余都算素材库
+    if mine:
+        nav = "mine"
+    elif kind == KIND_ADMINISTRATOR and current_status == Material.Status.PENDING:
+        nav = "pending"
+    else:
+        nav = "library"
+
     context = base_context(
         request,
+        nav=nav,
         materials=materials,
+        stats=build_stats(kind, request.person),
         categories=Category.objects.all(),
         status_choices=Material.Status.choices,
         current_category=category_id,
@@ -207,7 +258,9 @@ def create(request, kind):
         form = MaterialForm()
 
     return render(
-        request, "material/form.html", base_context(request, form=form, material=None)
+        request,
+        "material/form.html",
+        base_context(request, nav="create", form=form, material=None),
     )
 
 

@@ -1,28 +1,36 @@
-{% extends "user/background.html" %}
-{# 注意：块名必须与父模板 background.html 里的 welcome_message 完全一致（下划线，不是连字符），
-   否则这里的内容不会被渲染出来 #}
-{% block welcome_message %}
-    {% if from_url == "register" %}
-        <div class="welcome-message">注册成功，你的{% if kind == "student" %}学号{% else %}编号{% endif %}是{{ uid }}</div>
-    {% else %}
-        <div class="welcome-message">欢迎</div>
-    {% endif %}
+{% extends "user/auth_base.html" %}
+
+{% block title %}{% if kind == "student" %}学生登录{% else %}管理员登录{% endif %} · 语文素材管理系统{% endblock %}
+
+{% block headline %}{% if kind == "student" %}学生登录{% else %}管理员登录{% endif %}{% endblock %}
+
+{% block points %}
+<li>账号为 10 位：年级 4 位 + 编号 6 位</li>
+<li>登录状态保存在会话中，退出即失效</li>
 {% endblock %}
-{% block login_container %}
-    {% if kind == "student" %}
-        <div class="login-kind-title">我是学生</div>
-    {% else %}
-        <div class="login-kind-title">我是管理员</div>
-    {% endif %}
-    <div class = "form">
-        <form method="post">
-            {% csrf_token %}
-            {{form.as_p}}
-            <div class="submit-button">
-                <input type="submit" value="登录"/>
-                <a href="{% url 'register_detail' kind %}">注册</a>
-            </div>
-        </form>
-        <div class="return-button"><a href="{% url 'index' %}">返回上一页</a></div>
+
+{% block panel %}
+<div class="card card--pad-lg">
+    {% if from_url == "register" %}
+    <div class="note note--info">
+        <span class="note__title">注册成功</span>
+        <span class="note__body">
+            你的{% if kind == "student" %}学号{% else %}编号{% endif %}是
+            <strong>{{ uid }}</strong>，用它登录即可。
+        </span>
     </div>
+    {% endif %}
+
+    <h2 class="h-card">{% if kind == "student" %}学生登录{% else %}管理员登录{% endif %}</h2>
+
+    <form method="post" class="form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary">登录</button>
+            <a class="btn btn--ghost" href="{% url 'register_detail' kind %}">注册</a>
+            <a class="btn btn--link" href="{% url 'index' %}">返回身份选择</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

@@ -1,22 +1,37 @@
 {% extends "material/nav.html" %}
 
-{% block title %}删除素材 - 语文素材管理系统{% endblock %}
+{% block title %}删除素材 · 语文素材管理系统{% endblock %}
+
+{% block eyebrow %}危险操作{% endblock %}
+
+{% block page_title %}确认删除{% endblock %}
+
+{% block actions %}
+<a class="btn btn--ghost" href="{% url 'material_detail' info.kind material.pk %}">取消</a>
+{% endblock %}
 
 {% block content %}
-<div class="material-form-container">
-    <h2 class="material-title">确认删除</h2>
+<div class="card card--pad-lg">
+    <div class="note note--rejected">
+        <span class="note__title">删除后无法恢复</span>
+        <span class="note__body">确定要删除素材《{{ material.title }}》吗？该操作不可撤销。</span>
+    </div>
 
-    <p class="confirm-text">
-        确定要删除素材《{{ material.title }}》吗？该操作不可撤销。
-    </p>
-    <p class="confirm-text muted">
-        分类：{{ material.category.name }}　更新于 {{ material.updated_at|date:"Y-m-d H:i" }}
-    </p>
+    <dl class="kv">
+        <dt>分类</dt>
+        <dd>{{ material.category.name }}</dd>
+        <dt>提交人</dt>
+        <dd>{{ material.author_name }}</dd>
+        <dt>状态</dt>
+        <dd>{{ material.get_status_display }}</dd>
+        <dt>更新时间</dt>
+        <dd>{{ material.updated_at|date:"Y-m-d H:i" }}</dd>
+    </dl>
 
     <form method="post" class="form-actions">
         {% csrf_token %}
-        <input type="submit" value="确认删除" class="danger-button">
-        <a href="{% url 'material_detail' info.kind material.pk %}">取消</a>
+        <button type="submit" class="btn btn--danger">确认删除</button>
+        <a class="btn btn--link" href="{% url 'material_detail' info.kind material.pk %}">取消</a>
     </form>
 </div>
 {% endblock %}

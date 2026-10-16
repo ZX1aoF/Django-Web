@@ -1,12 +1,27 @@
-{% extends "user/background.html" %}
-{% block login_container %}
-<div class="login-kind student-login-button">
-    <a href="{% url 'register_detail' 'student'%}">注册学生</a>
-</div>
-<div class="login-kind administrator-login-button">
-    <a href="{% url 'register_detail' 'administrator'%}">注册管理员</a>
-</div>
-<div class="return-button-register">
-    <a href="{% url 'index' %}">返回上一页</a>
+{% extends "user/auth_base.html" %}
+
+{% block title %}注册 · 语文素材管理系统{% endblock %}
+
+{% block headline %}注册一个账号{% endblock %}
+
+{% block points %}
+<li>账号 = 年级(4 位) + 编号(6 位)，共 10 位</li>
+<li>编号由系统自动分配，不用自己想</li>
+<li>密码至少 8 位，且不能是纯数字</li>
+{% endblock %}
+
+{% block panel %}
+<div class="card card--pad-lg">
+    <h2 class="h-card">选择注册身份</h2>
+    <p class="lead mt-3">注册后账号会自动生成，接着就能用它登录。</p>
+
+    <div class="choice-grid">
+        <a class="choice" href="{% url 'register_detail' 'student' %}">注册学生</a>
+        <a class="choice" href="{% url 'register_detail' 'administrator' %}">注册管理员</a>
+    </div>
+
+    <div class="form-actions">
+        <a class="btn btn--link" href="{% url 'index' %}">已有账号？去登录</a>
+    </div>
 </div>
 {% endblock %}

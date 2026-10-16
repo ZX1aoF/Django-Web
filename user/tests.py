@@ -310,12 +310,12 @@ class StaticPageTests(TestCase):
     def test_index_page_renders(self):
         response = self.client.get(reverse("index"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "学生登录")
+        self.assertContains(response, "我是学生")
 
     def test_login_chooser_page_renders(self):
         response = self.client.get(reverse("login"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "管理员登录")
+        self.assertContains(response, "我是管理员")
 
     def test_register_chooser_page_renders(self):
         response = self.client.get(reverse("register"))

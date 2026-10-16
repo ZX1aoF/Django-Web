@@ -522,8 +522,8 @@ class StudentSubmissionTests(TestCase):
         # 一次跳转，最终停在详情页
         self.assertEqual(len(response.redirect_chain), 1)
         self.assertEqual(response.redirect_chain[0][1], 302)
-        self.assertContains(response, "通过后其他同学才能看到")
-        self.assertContains(response, "提交人：")
+        self.assertContains(response, "通过之后其他同学才能看到")
+        self.assertContains(response, "提交人")
 
     def test_owner_sees_own_pending_submission_in_the_list(self):
         self.submit(self.student, title="未审核的稿子")
@@ -774,6 +774,8 @@ class ReviewWorkflowTests(TestCase):
         self.login_administrator()
         response = self.client.get(reverse("material", args=["administrator"]))
 
-        self.assertContains(response, "待审核 (1)")
+        self.assertEqual(response.context["pending_count"], 1)
+        # 导航项后面跟一个数量徽章
+        self.assertContains(response, '待审核<span class="nav__count">1</span>')
 
 

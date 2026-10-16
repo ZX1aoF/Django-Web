@@ -20,6 +20,7 @@
 - [账号规则](#账号规则)
 - [页面与路由](#页面与路由)
 - [素材库](#素材库)
+- [界面设计](#界面设计)
 - [数据模型](#数据模型)
 - [修复记录](#修复记录)
 - [后续可做](#后续可做)
@@ -61,7 +62,7 @@ Django-Web 是一个课程实践项目（项目配置包名为 `SE`），实现�
 | 框架 | Django 4.1.12 |
 | 数据库 | SQLite 3 |
 | 模板 | Django Template Language |
-| 样式 | 手写 CSS（`static/css/`） |
+| 样式 | 手写 CSS + 设计令牌（`static/css/tokens.css`、`app.css`）；无框架、无构建步骤 |
 | 前端框架 | 无 |
 
 > Django 4.1 已于 2023 年 12 月结束官方支持（EOL）。如需长期维护，建议升级到 4.2 LTS 或更高版本。
@@ -95,10 +96,11 @@ Django-Web/
 │       ├── 0002_seed_categories.py
 │       └── 0003_material_review_workflow.py
 ├── templates/
-│   ├── user/               # login_home / login_detail / register / register_home / update / background
+│   ├── user/               # auth_base / login_home / login_detail / register / register_home / update
 │   └── material/           # nav / list / detail / form / confirm_delete / review
 ├── static/
-│   └── css/                # login.css / register.css / nav.css
+│   └── css/                # tokens.css（设计令牌）/ app.css（外壳与组件）
+├── tools/                  # 前端自检脚本（对比度、结构）
 ├── media/                  # 用户上传的素材附件（不纳入版本控制）
 ├── manage.py
 ├── requirements.txt
@@ -262,6 +264,63 @@ python manage.py test
 ### 分类
 
 迁移会预置 5 个常用分类。新增或调整分类请到 `/admin/material/category/`。分类被素材引用时不允许删除（外键为 `PROTECT`）。
+
+## 界面设计
+
+界面重塑使用 `website-ui-designer` 技能完成，方向是技能推荐的 **bold-creative**：深色、高对比、单一大主色。
+
+### 视觉方向
+
+| 项 | 取值 |
+| --- | --- |
+| 底色 | `#0A0A0B` 近黑 —— 不用纯黑，纯黑会失掉层次 |
+| 主色 | `#FF4D2E` 朱红 |
+| 副色 | `#7C5CFF` 电紫 —— 是原设计 `#4a2c98` 的现代化身，品牌连续性保留了 |
+| 字体 | 系统字体栈（中文回落 PingFang / 雅黑），**不依赖外网字体**，离线也能正常显示 |
+| 动效 | 120–320ms、`cubic-bezier(0.22, 1, 0.36, 1)`；全站只有一处入场动画，且尊重 `prefers-reduced-motion` |
+
+**签名元素只有一个**：列表页统计卡的主数字使用品牌渐变着色（朱红 → 电紫）。技能要求「pick one, execute it well」，所以没有到处堆渐变。
+
+### 令牌分三层
+
+`static/css/tokens.css` 按 primitive → semantic → component 三层组织，组件样式只引用后两层：
+
+1. **primitive**：原始色阶、间距刻度、字号、动效曲线 —— 全项目唯一允许出现裸色值的地方
+2. **semantic**：`--bg` / `--text` / `--accent` / `--warn` … 换主题只改这一层
+3. **component**：`--card-*` / `--btn-*` / `--input-*` / `--sidebar-w`
+
+`static/css/app.css` 里**不含任何裸色值**（有校验脚本把关）。改一个令牌，整页一致地跟着变。
+
+### 两处刻意偏离技能自带令牌
+
+技能自带的 `design-tokens.css` **在它自己默认的深色主题下就有 6 项对比度不达标**（浅色主题 10 项）。以下三处已修正，并用脚本验证：
+
+| 位置 | 技能原值 | 比值 | 本项目 | 比值 |
+| --- | --- | --- | --- | --- |
+| 主按钮文字（压在朱红上） | 白色 | 3.31:1 ✗ | 近黑 | **5.99:1** ✓ |
+| 弱化文字（12px 小字） | `--gray-500` | 4.09:1 ✗ | `--gray-400` | **7.11:1** ✓ |
+| 交互控件边界 | `--gray-700` | 1.89:1 ✗ | `--gray-500` | **4.09:1** ✓ |
+
+状态徽章也没有采用常见的「彩色文字 + 浅色底」——那种写法在表格行 hover 变浅时会失守。改为**不透明底色 + 白字 + 语义色圆点和描边**：任何状态下对比度都稳定，且状态同时带文字标签，不只靠颜色表达。
+
+### 结构变化
+
+导航从横向顶栏改为**应用外壳**：固定侧边导航（240px）+ 顶栏 + 独立滚动的内容区。窄屏下自动堆叠成横向导航条 —— **纯 CSS，没有引入任何 JS**。
+
+无障碍方面：每页一个 `h1`、表头带 `scope`、表单控件都有 `label` 关联、状态不只靠颜色、保留了可见焦点环、登录注册页补了「跳到主要内容」与 `main` landmark。
+
+### 重新校验
+
+```bash
+# 配色对比度（31 项，含半透明浅底按合成后颜色计算）
+python tools/check_tokens_contrast.py static/css/tokens.css
+
+# CSS 规则 + 实际渲染出的 HTML 结构（114 项）
+# 需先把页面抓成本地 html，见脚本头部说明
+python tools/check_frontend.py . <抓取目录>
+```
+
+> 技能自检清单里**无法程序化验证**的部分：各断点下的真实视觉观感、是否出现元素重叠。这两个脚本覆盖不到，需要在浏览器里按 360 / 768 / 1280 / 1600 宽度逐一人工核对。本次**未做**这一步。
 
 ## 数据模型
 

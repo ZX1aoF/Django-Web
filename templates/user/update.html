@@ -1,24 +1,27 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-{% load static %}
-<head>
-    <meta charset="UTF-8">
-    <title>
-        修改个人信息
-    </title>
-    <link href="{% static 'css/register.css' %}" rel="stylesheet">
-</head>
-<body>
+{% extends "user/auth_base.html" %}
 
-    <div class="register-container">
-        <div class="register-title">修改个人信息</div>
-        <form method="post" class="form">
-            {% csrf_token %}
-            {{form.as_p}}
-            <p><input type="submit" value="修改" class="submit-button"/></p>
-        </form>
-        <div class="return-button"><a href="{% url 'material' kind %}">返回上一页</a></div>
+{% block title %}修改个人信息 · 语文素材管理系统{% endblock %}
 
-    </div>
-</body>
-</html>
+{% block headline %}修改个人信息{% endblock %}
+
+{% block points %}
+<li>年级与学号 / 编号不可修改</li>
+<li>改密码需要重新输入并二次确认</li>
+<li>你投稿的素材会一直记在当前账号下</li>
+{% endblock %}
+
+{% block panel %}
+<div class="card card--pad-lg">
+    <h2 class="h-card">{% if kind == "student" %}学生资料{% else %}管理员资料{% endif %}</h2>
+    <p class="lead mt-3">账号：<strong>{{ info.name }}</strong></p>
+
+    <form method="post" class="form mt-5">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary">保存修改</button>
+            <a class="btn btn--link" href="{% url 'material' kind %}">返回素材库</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

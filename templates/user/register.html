@@ -1,24 +1,27 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <title>
-        注册
-    </title>
-    {% load static %}
-    <link href="{% static 'css/register.css' %}" rel="stylesheet">
-</head>
-<body>
-    <div class="register-container">
-        <div class="register-title">注册</div>
-        <form method="post" class="form">
-            {% csrf_token %}
-            {{form.as_p}}
-            <p><input type="submit" value="注册" class="submit-button"/></p>
-        </form>
-        <div class="return-button">
-            <a href="{% url 'login_detail' kind %}">返回上一页</a>
+{% extends "user/auth_base.html" %}
+
+{% block title %}注册{% if kind == "student" %}学生{% else %}管理员{% endif %} · 语文素材管理系统{% endblock %}
+
+{% block headline %}注册{% if kind == "student" %}学生{% else %}管理员{% endif %}账号{% endblock %}
+
+{% block points %}
+<li>只需填年级，编号由系统接着往下排</li>
+<li>密码至少 8 位，且不能是纯数字</li>
+<li>账号一旦生成，年级与编号不可修改</li>
+{% endblock %}
+
+{% block panel %}
+<div class="card card--pad-lg">
+    <h2 class="h-card">{% if kind == "student" %}注册学生{% else %}注册管理员{% endif %}</h2>
+    <p class="lead mt-3">带 <span aria-hidden="true">*</span> 的是必填项，提交后会自动分配编号。</p>
+
+    <form method="post" class="form mt-5">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary">注册</button>
+            <a class="btn btn--link" href="{% url 'login_detail' kind %}">返回登录</a>
         </div>
-    </div>
-</body>
-</html>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% load static %}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}语文素材管理系统{% endblock %}</title>
+    <link href="{% static 'css/tokens.css' %}" rel="stylesheet">
+    <link href="{% static 'css/app.css' %}" rel="stylesheet">
+</head>
+<body>
+<a class="sr-only" href="#main">跳到主要内容</a>
+
+<div class="auth">
+    <section class="auth__brand">
+        <p class="eyebrow">语文素材管理系统</p>
+        <h1 class="auth__headline">{% block headline %}把语文素材收在一处{% endblock %}</h1>
+        <div class="auth__rule" aria-hidden="true"></div>
+        <ul class="auth__points">
+            {% block points %}
+            <li>管理员录入与审核素材</li>
+            <li>学生检索、阅读、投稿</li>
+            <li>稿件经审核通过后才对外可见</li>
+            {% endblock %}
+        </ul>
+    </section>
+
+    <main class="auth__panel" id="main">
+        <div class="auth__card">
+            {% block panel %}{% endblock %}
+        </div>
+    </main>
+</div>
+</body>
+</html>

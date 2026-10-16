@@ -1,37 +1,69 @@
 {% extends "material/nav.html" %}
 
-{% block title %}审核素材 - 语文素材管理系统{% endblock %}
+{% block title %}审核素材 · 语文素材管理系统{% endblock %}
+
+{% block eyebrow %}管理员{% endblock %}
+
+{% block page_title %}审核素材{% endblock %}
+
+{% block actions %}
+<a class="btn btn--ghost"
+   href="{% url 'material' info.kind %}{% if material.status == 'pending' %}?status=pending{% endif %}">
+    返回审核队列
+</a>
+{% endblock %}
 
 {% block content %}
-<div class="material-form-container">
-    <h2 class="material-title">审核素材</h2>
-
-    <div class="review-preview">
-        <div class="review-preview-title">{{ material.title }}</div>
-        <div class="material-meta">
-            <span>
-                当前状态：<span class="status status-{{ material.status }}">{{ material.get_status_display }}</span>
-            </span>
-            <span>分类：{{ material.category.name }}</span>
-            <span>提交人：{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
+<div class="card card--pad-lg">
+    <div class="meta-row">
+        <div class="meta-item">
+            <span class="eyebrow">标题</span>
+            <span>{{ material.title }}</span>
         </div>
-        <div class="review-body">{{ material.body|truncatechars:300|linebreaks }}</div>
-        <a class="review-more" href="{% url 'material_detail' info.kind material.pk %}" target="_blank" rel="noopener">查看全文</a>
+        <div class="meta-item">
+            <span class="eyebrow">当前状态</span>
+            <span class="pill pill--{{ material.status }}">
+                <span class="pill__dot" aria-hidden="true"></span>{{ material.get_status_display }}
+            </span>
+        </div>
+        <div class="meta-item">
+            <span class="eyebrow">分类</span>
+            <span>{{ material.category.name }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="eyebrow">提交人</span>
+            <span>{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
+        </div>
+        {% if material.source %}
+        <div class="meta-item">
+            <span class="eyebrow">出处 / 作者</span>
+            <span>{{ material.source }}</span>
+        </div>
+        {% endif %}
     </div>
 
+    <div class="prose">{{ material.body|truncatechars:300|linebreaks }}</div>
+
+    <p class="mt-4">
+        <a class="btn btn--link" href="{% url 'material_detail' info.kind material.pk %}"
+           target="_blank" rel="noopener">在新标签页查看全文</a>
+    </p>
+
     {% if material.reviewed_at %}
-    <div class="review-note">
-        上一次审核：{{ material.reviewed_at|date:"Y-m-d H:i" }}
-        {% if material.review_comment %}　意见：{{ material.review_comment }}{% endif %}
+    <div class="note note--info mt-5">
+        <span class="note__title">上一次审核：{{ material.reviewed_at|date:"Y-m-d H:i" }}</span>
+        {% if material.review_comment %}
+        <span class="note__body">当时的意见：{{ material.review_comment }}</span>
+        {% endif %}
     </div>
     {% endif %}
 
-    <form method="post" class="material-form">
+    <form method="post" class="form mt-6">
         {% csrf_token %}
         {{ form.as_p }}
         <div class="form-actions">
-            <input type="submit" value="提交审核结果" class="primary-button">
-            <a href="{% url 'material' info.kind %}{% if material.status == 'pending' %}?status=pending{% endif %}">返回</a>
+            <button type="submit" class="btn btn--primary">提交审核结果</button>
+            <a class="btn btn--link" href="{% url 'material' info.kind %}">返回素材库</a>
         </div>
     </form>
 </div>

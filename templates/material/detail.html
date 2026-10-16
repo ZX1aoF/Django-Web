@@ -1,51 +1,72 @@
 {% extends "material/nav.html" %}
 
-{% block title %}{{ material.title }} - 语文素材管理系统{% endblock %}
+{% block title %}{{ material.title }} · 语文素材管理系统{% endblock %}
+
+{% block eyebrow %}素材详情{% endblock %}
+
+{% block page_title %}{{ material.title }}{% endblock %}
+
+{% block actions %}
+<a class="btn btn--ghost" href="{% url 'material' info.kind %}">返回列表</a>
+{% if can_manage %}
+<a class="btn btn--ghost" href="{% url 'material_edit' info.kind material.pk %}">编辑</a>
+{% endif %}
+{% if is_administrator %}
+<a class="btn btn--ghost" href="{% url 'material_review' info.kind material.pk %}">审核</a>
+{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="material-detail">
-    <h2 class="material-title">{{ material.title }}</h2>
-
-    <div class="material-meta">
-        <span>
-            状态：<span class="status status-{{ material.status }}">{{ material.get_status_display }}</span>
-        </span>
-        <span>分类：{{ material.category.name }}</span>
-        {% if material.source %}<span>出处：{{ material.source }}</span>{% endif %}
-        <span>
-            提交人：{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}
-        </span>
-        <span>更新于 {{ material.updated_at|date:"Y-m-d H:i" }}</span>
+<article class="card card--pad-lg">
+    <div class="meta-row">
+        <div class="meta-item">
+            <span class="eyebrow">状态</span>
+            <span class="pill pill--{{ material.status }}">
+                <span class="pill__dot" aria-hidden="true"></span>{{ material.get_status_display }}
+            </span>
+        </div>
+        <div class="meta-item">
+            <span class="eyebrow">分类</span>
+            <span>{{ material.category.name }}</span>
+        </div>
+        {% if material.source %}
+        <div class="meta-item">
+            <span class="eyebrow">出处 / 作者</span>
+            <span>{{ material.source }}</span>
+        </div>
+        {% endif %}
+        <div class="meta-item">
+            <span class="eyebrow">提交人</span>
+            <span>{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
+        </div>
+        <div class="meta-item">
+            <span class="eyebrow">更新于</span>
+            <span>{{ material.updated_at|date:"Y-m-d H:i" }}</span>
+        </div>
     </div>
 
     {% if material.status == "rejected" %}
-    <div class="review-note">
-        <strong>审核未通过：</strong>{{ material.review_comment|default:"管理员未填写原因" }}
-        {% if can_manage %}<div class="review-note-hint">修改并保存后，稿件会重新回到「待审核」。</div>{% endif %}
+    <div class="note note--rejected">
+        <span class="note__title">审核未通过</span>
+        <span class="note__body">
+            {{ material.review_comment|default:"管理员未填写原因" }}
+            {% if can_manage %}修改并保存后，稿件会重新回到「待审核」。{% endif %}
+        </span>
     </div>
     {% elif material.status == "pending" %}
-    <div class="review-note is-pending">
-        这条素材正在等待管理员审核，通过后其他同学才能看到。
+    <div class="note note--pending">
+        <span class="note__title">等待审核</span>
+        <span class="note__body">这条素材正在等待管理员审核，通过之后其他同学才能看到。</span>
     </div>
     {% endif %}
 
-    <div class="material-body">{{ material.body|linebreaks }}</div>
+    <div class="prose">{{ material.body|linebreaks }}</div>
 
     {% if material.attachment %}
-    <div class="material-attachment">
-        附件：<a href="{{ material.attachment.url }}" target="_blank" rel="noopener">{{ material.attachment.name }}</a>
-    </div>
+    <p class="attachment">
+        <span class="eyebrow">附件</span>
+        <a href="{{ material.attachment.url }}" target="_blank" rel="noopener">{{ material.attachment.name }}</a>
+    </p>
     {% endif %}
-
-    <div class="material-actions">
-        <a href="{% url 'material' info.kind %}">← 返回素材库</a>
-        {% if can_manage %}
-        <a href="{% url 'material_edit' info.kind material.pk %}">编辑</a>
-        <a href="{% url 'material_delete' info.kind material.pk %}">删除</a>
-        {% endif %}
-        {% if is_administrator %}
-        <a href="{% url 'material_review' info.kind material.pk %}">审核</a>
-        {% endif %}
-    </div>
-</div>
+</article>
 {% endblock %}
