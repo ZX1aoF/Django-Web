@@ -1,9 +1,11 @@
 from functools import wraps
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from material.forms import MaterialForm, ReviewForm
@@ -26,6 +28,17 @@ MODELS = {
 
 # 学生处于这两种状态时还能自己改稿 / 重投；一旦通过就锁住，不能再改已发布的内容
 STUDENT_EDITABLE_STATUSES = (Material.Status.PENDING, Material.Status.REJECTED)
+
+# 列表页每页条数。参考图书馆目录的经验：一屏放得下、又不必频繁翻页
+PAGE_SIZE = 12
+
+# 排序方式。默认按最近更新，这是目录类站点最常用的默认值
+SORTS = {
+    "newest": ("-updated_at", "最近更新"),
+    "oldest": ("updated_at", "最早更新"),
+    "title": ("title", "标题"),
+}
+DEFAULT_SORT = "newest"
 
 
 def get_user(request, kind):
@@ -157,37 +170,158 @@ def build_stats(kind, person):
     ]
 
 
-@require_person()
-def home(request, kind):
-    """素材库：按分类 / 关键词 / 状态筛选，学生可以只看自己的投稿。"""
-    category_id = request.GET.get("category", "")
-    keyword = request.GET.get("q", "").strip()
-    current_status = request.GET.get("status", "")
-    mine = request.GET.get("mine") == "1"
+def apply_filters(
+    queryset,
+    kind,
+    person,
+    *,
+    keyword="",
+    category_id="",
+    status="",
+    mine=False,
+    with_category=True,
+    with_status=True,
+):
+    """把列表页的四个筛选条件作用到查询集上。
 
-    materials = visible_materials(kind, request.person)
-
-    if category_id.isdigit():
-        materials = materials.filter(category_id=int(category_id))
-
+    ``with_category`` / ``with_status`` 用于算分面计数时排除自己这一维：
+    否则用户一选中某个分类，其他分类的计数会全部变成 0，分面就没用了。
+    """
     if keyword:
-        materials = materials.filter(
+        queryset = queryset.filter(
             Q(title__icontains=keyword)
             | Q(source__icontains=keyword)
             | Q(body__icontains=keyword)
         )
 
-    # 状态筛选只对管理员开放：学生本来就看不到别人的待审核稿件
-    if kind == KIND_ADMINISTRATOR and current_status in Material.Status.values:
-        materials = materials.filter(status=current_status)
+    if with_category and category_id.isdigit():
+        queryset = queryset.filter(category_id=int(category_id))
+
+    if with_status and kind == KIND_ADMINISTRATOR and status in Material.Status.values:
+        queryset = queryset.filter(status=status)
 
     if mine:
-        if kind == KIND_ADMINISTRATOR:
-            materials = materials.filter(created_by=request.person)
-        else:
-            materials = materials.filter(submitted_by=request.person)
+        field = "created_by" if kind == KIND_ADMINISTRATOR else "submitted_by"
+        queryset = queryset.filter(**{field: person})
 
-    materials = list(materials)
+    return queryset
+
+
+def filter_url(request, kind, drop):
+    """去掉某几个查询参数后的地址，用于筛选标签上的「×」。"""
+    params = request.GET.copy()
+    for key in drop:
+        params.pop(key, None)
+    params.pop("page", None)
+
+    query = params.urlencode()
+    base = reverse("material", kwargs={"kind": kind})
+    return "%s?%s" % (base, query) if query else base
+
+
+def active_filters(request, kind, keyword, category_id, current_status, mine):
+    """当前生效的筛选条件，渲染成一排可单独移除的标签。"""
+    chips = []
+
+    if keyword:
+        chips.append(
+            {"label": "关键词：%s" % keyword, "remove": filter_url(request, kind, ["q"])}
+        )
+
+    if category_id.isdigit():
+        category = Category.objects.filter(pk=int(category_id)).first()
+        if category is not None:
+            chips.append(
+                {
+                    "label": "分类：%s" % category.name,
+                    "remove": filter_url(request, kind, ["category"]),
+                }
+            )
+
+    if kind == KIND_ADMINISTRATOR and current_status in Material.Status.values:
+        chips.append(
+            {
+                "label": "状态：%s" % Material.Status(current_status).label,
+                "remove": filter_url(request, kind, ["status"]),
+            }
+        )
+
+    if mine:
+        chips.append({"label": "只看我的", "remove": filter_url(request, kind, ["mine"])})
+
+    return chips
+
+
+def page_links(page_obj):
+    """分页条的页码项。
+
+    中间省略的段落单独给一项，模板里就不用去比对省略号字符串了。
+    """
+    if page_obj.paginator.num_pages <= 1:
+        return []
+
+    links = []
+    for item in page_obj.paginator.get_elided_page_range(
+        page_obj.number, on_each_side=1, on_ends=1
+    ):
+        if item == page_obj.paginator.ELLIPSIS:
+            links.append({"gap": True})
+        else:
+            links.append({"number": item, "current": item == page_obj.number})
+    return links
+
+
+@require_person()
+def home(request, kind):
+    """素材库：筛选 + 排序 + 分页。
+
+    三者都走查询参数，所以任何一屏结果都能被直接收藏或转发。
+    """
+    category_id = request.GET.get("category", "")
+    keyword = request.GET.get("q", "").strip()
+    current_status = request.GET.get("status", "")
+    mine = request.GET.get("mine") == "1"
+
+    current_sort = request.GET.get("sort", DEFAULT_SORT)
+    if current_sort not in SORTS:
+        current_sort = DEFAULT_SORT
+
+    base = visible_materials(kind, request.person)
+
+    filter_kwargs = {
+        "keyword": keyword,
+        "category_id": category_id,
+        "status": current_status,
+        "mine": mine,
+    }
+
+    filtered = apply_filters(base, kind, request.person, **filter_kwargs).order_by(
+        SORTS[current_sort][0]
+    )
+
+    # 分类分面：排除分类这一维，才能算出「选了它会得到多少条」
+    category_facet = apply_filters(
+        base, kind, request.person, **filter_kwargs, with_category=False
+    )
+    category_counts = {
+        row["category"]: row["n"]
+        for row in category_facet.values("category").annotate(n=Count("id"))
+    }
+
+    status_counts = {}
+    if kind == KIND_ADMINISTRATOR:
+        status_facet = apply_filters(
+            base, kind, request.person, **filter_kwargs, with_status=False
+        )
+        status_counts = {
+            row["status"]: row["n"]
+            for row in status_facet.values("status").annotate(n=Count("id"))
+        }
+
+    paginator = Paginator(filtered, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    materials = list(page_obj.object_list)
     for material in materials:
         material.can_manage = can_manage(material, kind, request.person)
 
@@ -199,13 +333,44 @@ def home(request, kind):
     else:
         nav = "library"
 
+    params = request.GET.copy()
+    params.pop("page", None)
+
     context = base_context(
         request,
         nav=nav,
         materials=materials,
         stats=build_stats(kind, request.person),
-        categories=Category.objects.all(),
-        status_choices=Material.Status.choices,
+        page_obj=page_obj,
+        page_links=page_links(page_obj),
+        total_count=paginator.count,
+        querystring=params.urlencode(),
+        current_sort=current_sort,
+        sort_options=[
+            {"value": value, "label": label, "current": value == current_sort}
+            for value, (_, label) in SORTS.items()
+        ],
+        category_options=[
+            {
+                "pk": category.pk,
+                "name": category.name,
+                "count": category_counts.get(category.pk, 0),
+                "current": str(category.pk) == category_id,
+            }
+            for category in Category.objects.all()
+        ],
+        status_options=[
+            {
+                "value": value,
+                "label": label,
+                "count": status_counts.get(value, 0),
+                "current": value == current_status,
+            }
+            for value, label in Material.Status.choices
+        ],
+        active_filters=active_filters(
+            request, kind, keyword, category_id, current_status, mine
+        ),
         current_category=category_id,
         current_status=current_status,
         keyword=keyword,

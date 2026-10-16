@@ -1,0 +1,23 @@
+{% comment %}
+渐进增强。两件事，都不影响无脚本时的可用性：
+
+  1. 提交失败后把键盘焦点移到错误摘要上（GOV.UK 的要求，纯 CSS 做不到）
+  2. 带 data-autosubmit 的下拉框改动后自动提交所在的 GET 表单
+     （排序这类「改了就生效」的控件，参考 GitHub / Linear 的做法）
+{% endcomment %}
+<script>
+(function () {
+    var summary = document.querySelector("[data-error-summary]");
+    if (summary) {
+        summary.focus();
+    }
+
+    document.querySelectorAll("[data-autosubmit]").forEach(function (control) {
+        control.addEventListener("change", function () {
+            if (control.form) {
+                control.form.submit();
+            }
+        });
+    });
+})();
+</script>

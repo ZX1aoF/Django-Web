@@ -6,6 +6,29 @@
 
 {% block page_title %}{{ material.title }}{% endblock %}
 
+{% block standfirst %}
+<p class="byline">
+    <span class="byline__pair">
+        <span class="byline__label">分类</span><span>{{ material.category.name }}</span>
+    </span>
+    {% if material.source %}
+    <span class="byline__pair">
+        <span class="byline__label">出处 / 作者</span><span>{{ material.source }}</span>
+    </span>
+    {% endif %}
+    <span class="byline__pair">
+        <span class="byline__label">提交人</span>
+        <span>{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
+    </span>
+    <span class="byline__pair">
+        <span class="byline__label">更新于</span>
+        <span class="cell-num">
+            <time datetime="{{ material.updated_at|date:'c' }}">{{ material.updated_at|date:"Y-m-d H:i" }}</time>
+        </span>
+    </span>
+</p>
+{% endblock %}
+
 {% block actions %}
 <a class="btn btn--ghost" href="{% url 'material' info.kind %}">返回列表</a>
 {% if can_manage %}
@@ -52,27 +75,21 @@
     </article>
 </div>
 
-<aside class="rail" aria-label="素材信息">
+<aside class="rail" aria-label="审核信息">
     <div class="rail__head">
-        <p class="rail__title">素材信息</p>
+        <p class="rail__title">审核信息</p>
     </div>
     <div class="meta-row">
         <div class="meta-item">
-            <span class="eyebrow eyebrow--flat">出处 / 作者</span>
-            <span>{{ material.source|default:"未填写" }}</span>
-        </div>
-        <div class="meta-item">
-            <span class="eyebrow eyebrow--flat">提交人</span>
-            <span>{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
-        </div>
-        <div class="meta-item">
-            <span class="eyebrow eyebrow--flat">更新于</span>
-            <span class="cell-num">{{ material.updated_at|date:"Y-m-d H:i" }}</span>
+            <span class="eyebrow eyebrow--flat">当前状态</span>
+            <span>{{ material.get_status_display }}</span>
         </div>
         {% if material.reviewed_at %}
         <div class="meta-item">
             <span class="eyebrow eyebrow--flat">审核于</span>
-            <span class="cell-num">{{ material.reviewed_at|date:"Y-m-d H:i" }}</span>
+            <span class="cell-num">
+                <time datetime="{{ material.reviewed_at|date:'c' }}">{{ material.reviewed_at|date:"Y-m-d H:i" }}</time>
+            </span>
         </div>
         {% endif %}
     </div>

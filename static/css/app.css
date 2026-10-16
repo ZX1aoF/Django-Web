@@ -783,14 +783,20 @@ table {
    ========================================================================== */
 
 .filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
   background: var(--surface);
   border: var(--rule-thin) solid var(--border);
   border-radius: var(--radius-md);
+}
+
+/* 筛选控件一行；结果计数与排序另起一行，和筛选条件分开 */
+.filters__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
 }
 
 .field {
@@ -1089,13 +1095,24 @@ input[type="radio"] {
   color: var(--text);
 }
 
-/* 素材正文按「引文」处理：楷体 + 朱砂边线，诗词与文言文最合身 */
+/* 素材正文按「引文」处理：楷体 + 朱砂边线，诗词与文言文最合身。
+   行长卡在 --measure 上 —— 中文一行超过 40 字就会读串行，这是排版上的硬约束，
+   宽屏下正文绝不能横跨整个版心。 */
 .prose--article {
+  max-inline-size: var(--measure);
   padding-inline-start: var(--space-5);
   font-family: var(--font-kai);
   font-size: var(--text-md);
   line-height: var(--leading-loose);
   border-inline-start: var(--rule-thick) solid var(--accent);
+}
+
+.lead {
+  max-inline-size: var(--measure);
+}
+
+.note__body {
+  max-inline-size: var(--measure);
 }
 
 .prose--article p + p {
@@ -1463,3 +1480,349 @@ input[type="radio"] {
     grid-template-columns: 25rem minmax(0, 1fr);
   }
 }
+
+/* ==========================================================================
+   17. 目录工具条 / 筛选标签 / 分页
+   --------------------------------------------------------------------------
+   这三件是图书馆目录（OPAC）类站点的标准配置：结果显示数量、可排序、
+   可翻页，加上一排能单独撤掉的已选条件，用户就不会在筛选里迷路。
+   ========================================================================== */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.toolbar__count {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.toolbar__count strong {
+  margin-inline: 0.15em;
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  color: var(--accent);
+}
+
+/* 已选筛选：每个都能单独撤掉，不用整页重来 */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chips__label {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-faint);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2) 2px var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--card-bg);
+  border: var(--rule-thin) solid var(--border-strong);
+  border-radius: var(--radius-xs);
+}
+
+.chip__remove {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1rem;
+  block-size: 1rem;
+  font-size: var(--text-sm);
+  line-height: 1;
+  color: var(--text-faint);
+  text-decoration: none;
+  border-radius: var(--radius-xs);
+}
+
+.chip__remove:hover {
+  color: var(--accent-contrast);
+  background: var(--danger);
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.pager__step,
+.pager__page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.25rem;
+  min-block-size: 2.25rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  background: var(--card-bg);
+  border: var(--rule-thin) solid var(--border);
+  border-radius: var(--radius-xs);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+/* 页码用等宽数字，翻页时位置不会抖 */
+.pager__page {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager__step:hover,
+.pager__page:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.pager__page[aria-current="page"] {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.pager__gap {
+  padding-inline: var(--space-1);
+  color: var(--text-faint);
+}
+
+.pager__meta {
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.pager__home {
+  display: flex;
+  justify-content: center;
+}
+
+/* ==========================================================================
+   18. 署名行
+   --------------------------------------------------------------------------
+   参考资料里的「standfirst / byline」：把分类、出处、提交人、日期这些
+   基本信息压在标题下面一行，读者不用去页边找。印在纸上也带得走。
+   ========================================================================== */
+
+.byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  margin-block-start: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.byline__pair {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.byline__pair + .byline__pair::before {
+  content: "·";
+  margin-inline-end: var(--space-4);
+  color: var(--border-strong);
+}
+
+.byline__label {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-faint);
+}
+
+/* ==========================================================================
+   19. 表单错误摘要（GOV.UK Design System 的错误摘要模式）
+   ========================================================================== */
+
+.error-summary {
+  padding: var(--space-4);
+  font-size: var(--text-base);
+  background: var(--danger-subtle);
+  border: var(--rule-thin) solid var(--danger);
+  border-inline-start: var(--rule-double) solid var(--danger);
+  border-radius: var(--radius-sm);
+}
+
+/* 脚本会把焦点移到摘要上，这时的焦点环贴着边框更利落 */
+.error-summary:focus-visible {
+  outline-offset: 0;
+}
+
+.error-summary__title {
+  font-family: var(--font-serif);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--danger);
+}
+
+.error-summary__list {
+  display: grid;
+  gap: var(--space-1);
+  margin-block-start: var(--space-3);
+  padding-inline-start: var(--space-5);
+  list-style: disc;
+  line-height: var(--leading-normal);
+}
+
+.error-summary__list a {
+  color: var(--danger);
+}
+
+/* ==========================================================================
+   20. 打印
+   --------------------------------------------------------------------------
+   既然整版都在往「纸本」上靠，打印就该是它最完整的一次呈现：
+   去掉所有屏幕上的构件，只留正文与表格。参考打印样式的通行做法 ——
+   换物理单位、收成单栏、控制分页、把链接地址补在文字后面。
+   ========================================================================== */
+
+@page {
+  margin: 16mm;
+}
+
+@media print {
+  .shell {
+    font-size: 11pt;
+    line-height: 1.6;
+    color: var(--ink-0);
+    background-color: var(--paper-0);
+    background-image: none;
+  }
+
+  /* 屏幕上才有意义的构件全部去掉 */
+  .skip,
+  .masthead,
+  .band__actions,
+  .tabs,
+  .filters,
+  .chips,
+  .toolbar,
+  .pager,
+  .toasts,
+  .rail,
+  .cell-actions,
+  .avatar,
+  .mast__logout,
+  .error-summary,
+  .auth__ink {
+    display: none !important;
+  }
+
+  /* 版式收成单栏，去掉一切容器装饰 */
+  .band,
+  .card,
+  .table-scroll,
+  .note,
+  .empty,
+  .auth {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .band__inner,
+  .wrap,
+  .content,
+  .auth__paper {
+    max-inline-size: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .wrap,
+  .auth {
+    display: block;
+  }
+
+  .eyebrow,
+  .pill,
+  .seal-md,
+  .note--pending,
+  .note--rejected {
+    color: var(--ink-0);
+    background: none;
+  }
+
+  .pill,
+  .seal-md {
+    border-color: var(--ink-0);
+  }
+
+  /* 表格：去掉表头吸顶与内部滚动，让浏览器按纸面重新分页 */
+  .table-scroll {
+    overflow: visible;
+  }
+
+  .data-table {
+    min-inline-size: 0;
+  }
+
+  .data-table thead th {
+    position: static;
+    border-block-end: var(--rule-thin) solid var(--ink-0);
+  }
+
+  /* 正文按纸面重新排版，不再受屏幕上的行长限制 */
+  .prose--article,
+  .lead,
+  .note__body {
+    max-inline-size: none;
+  }
+
+  .prose--article {
+    border-inline-start-color: var(--ink-0);
+  }
+
+  a {
+    color: var(--ink-0);
+    text-decoration: none;
+  }
+
+  /* 纸上点不了链接，把地址补在文字后面 */
+  .prose--article a[href^="http"]::after,
+  .attachment a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+  }
+
+  /* 分页控制：标题不要落在页尾，卡片与表格行不要被切开 */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  .card,
+  .note,
+  .kv,
+  .attachment,
+  .data-table tr {
+    break-inside: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+}
+

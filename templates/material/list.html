@@ -30,42 +30,73 @@
     <form class="filters" method="get" role="search">
         {% if mine %}<input type="hidden" name="mine" value="1">{% endif %}
 
-        <div class="field field--grow">
-            <label class="field__label" for="filter-q">关键词</label>
-            <input type="search" id="filter-q" name="q" value="{{ keyword }}"
-                   placeholder="标题 / 出处 / 正文">
+        <div class="filters__row">
+            <div class="field field--grow">
+                <label class="field__label" for="filter-q">关键词</label>
+                <input type="search" id="filter-q" name="q" value="{{ keyword }}"
+                       placeholder="标题 / 出处 / 正文">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="filter-category">分类</label>
+                <select id="filter-category" name="category">
+                    <option value="">全部分类</option>
+                    {% for option in category_options %}
+                    <option value="{{ option.pk }}" {% if option.current %}selected{% endif %}>
+                        {{ option.name }}（{{ option.count }}）
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if is_administrator %}
+            <div class="field">
+                <label class="field__label" for="filter-status">状态</label>
+                <select id="filter-status" name="status">
+                    <option value="">全部状态</option>
+                    {% for option in status_options %}
+                    <option value="{{ option.value }}" {% if option.current %}selected{% endif %}>
+                        {{ option.label }}（{{ option.count }}）
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn--ghost">筛选</button>
+            {% if active_filters %}
+            <a class="btn btn--link" href="{% url 'material' info.kind %}{% if mine %}?mine=1{% endif %}">重置</a>
+            {% endif %}
         </div>
 
-        <div class="field">
-            <label class="field__label" for="filter-category">分类</label>
-            <select id="filter-category" name="category">
-                <option value="">全部分类</option>
-                {% for category in categories %}
-                <option value="{{ category.pk }}"
-                    {% if current_category == category.pk|stringformat:"s" %}selected{% endif %}>
-                    {{ category.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
+        <div class="toolbar">
+            <p class="toolbar__count">
+                共 <strong>{{ total_count }}</strong> 篇
+                {% if active_filters %}（已筛选）{% endif %}
+            </p>
 
-        {% if is_administrator %}
-        <div class="field">
-            <label class="field__label" for="filter-status">状态</label>
-            <select id="filter-status" name="status">
-                <option value="">全部状态</option>
-                {% for value, label in status_choices %}
-                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
+            <div class="field">
+                <label class="field__label" for="filter-sort">排序</label>
+                <select id="filter-sort" name="sort" data-autosubmit>
+                    {% for option in sort_options %}
+                    <option value="{{ option.value }}" {% if option.current %}selected{% endif %}>{{ option.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
-        {% endif %}
-
-        <button type="submit" class="btn btn--ghost">筛选</button>
-        {% if keyword or current_category or current_status %}
-        <a class="btn btn--link" href="{% url 'material' info.kind %}{% if mine %}?mine=1{% endif %}">重置</a>
-        {% endif %}
     </form>
+
+    {% if active_filters %}
+    <div class="chips">
+        <span class="chips__label">当前条件</span>
+        {% for chip in active_filters %}
+        <span class="chip">
+            {{ chip.label }}
+            <a class="chip__remove" href="{{ chip.remove }}" aria-label="移除筛选条件 {{ chip.label }}">×</a>
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     {% if materials %}
     <div class="table-scroll">
@@ -85,7 +116,11 @@
             <tbody>
                 {% for material in materials %}
                 <tr>
-                    <td><span class="ledger__index">{{ forloop.counter|stringformat:"02d" }}</span></td>
+                    <td>
+                        <span class="ledger__index">
+                            {{ page_obj.start_index|add:forloop.counter0|stringformat:"02d" }}
+                        </span>
+                    </td>
                     <td>
                         <span class="ledger__title">
                             <a href="{% url 'material_detail' info.kind material.pk %}">{{ material.title }}</a>
@@ -104,7 +139,9 @@
                             <span class="pill__dot" aria-hidden="true"></span>{{ material.get_status_display }}
                         </span>
                     </td>
-                    <td class="cell-num">{{ material.updated_at|date:"Y-m-d H:i" }}</td>
+                    <td class="cell-num">
+                        <time datetime="{{ material.updated_at|date:'c' }}">{{ material.updated_at|date:"Y-m-d H:i" }}</time>
+                    </td>
                     <td>
                         <span class="cell-actions">
                             {% if material.can_manage %}
@@ -124,13 +161,13 @@
     {% else %}
     <div class="empty">
         <p class="empty__title">
-            {% if keyword or current_category or current_status %}没有匹配的素材
+            {% if active_filters %}没有匹配的素材
             {% elif mine %}还没有投稿
             {% else %}素材库还是空的{% endif %}
         </p>
         <p class="empty__hint">
-            {% if keyword or current_category or current_status %}
-                换个关键词或筛选项再试试。
+            {% if active_filters %}
+                换个关键词或筛选项再试试，也可以直接清掉当前条件。
             {% elif mine %}
                 投稿后需要管理员审核，通过之后其他同学也能在素材库里看到。
             {% elif is_administrator %}
@@ -139,7 +176,7 @@
                 等管理员录入素材后这里就会出现内容，你也可以先自己投稿。
             {% endif %}
         </p>
-        {% if keyword or current_category or current_status %}
+        {% if active_filters %}
         <a class="btn btn--ghost mt-4" href="{% url 'material' info.kind %}{% if mine %}?mine=1{% endif %}">清除筛选</a>
         {% else %}
         <a class="btn btn--primary mt-4" href="{% url 'material_create' info.kind %}">
@@ -147,6 +184,34 @@
         </a>
         {% endif %}
     </div>
+    {% endif %}
+
+    {% if page_links %}
+    <nav class="pager" aria-label="分页">
+        {% if page_obj.has_previous %}
+        <a class="pager__step" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+           rel="prev">← 上一页</a>
+        {% endif %}
+
+        {% for link in page_links %}
+        {% if link.gap %}
+        <span class="pager__gap" aria-hidden="true">…</span>
+        {% elif link.current %}
+        <a class="pager__page" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ link.number }}"
+           aria-current="page">{{ link.number }}</a>
+        {% else %}
+        <a class="pager__page" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ link.number }}">{{ link.number }}</a>
+        {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a class="pager__step" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+           rel="next">下一页 →</a>
+        {% endif %}
+    </nav>
+    <p class="pager__meta">
+        第 {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} 页，每页 {{ page_obj.paginator.per_page }} 篇
+    </p>
     {% endif %}
 </div>
 

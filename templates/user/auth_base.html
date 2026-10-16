@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}语文素材管理系统{% endblock %}</title>
+    <title>{% if form.errors %}Error: {% endif %}{% block title %}语文素材管理系统{% endblock %}</title>
     <link href="{% static 'css/tokens.css' %}" rel="stylesheet">
     <link href="{% static 'css/app.css' %}" rel="stylesheet">
 </head>
@@ -26,10 +26,13 @@
 
     <main class="auth__paper" id="main">
         <div class="auth__card">
+            {% include "includes/error_summary.html" %}
             {% block panel %}{% endblock %}
         </div>
         <p class="auth__foot">{% block foot %}账号为 10 位：年级 4 位 + 编号 6 位。{% endblock %}</p>
     </main>
 </div>
+
+{% include "includes/enhance.html" %}
 </body>
 </html>

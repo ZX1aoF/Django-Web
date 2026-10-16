@@ -329,6 +329,37 @@ class StaticPageTests(TestCase):
         self.assertTrue(response["Location"].startswith("/admin/login/"))
 
 
+class AuthErrorSummaryTests(TestCase):
+    """登录 / 注册 / 改资料共用 auth_base.html，错误摘要在这条链路上也要生效。"""
+
+    def test_register_error_shows_summary_linking_to_the_field(self):
+        response = self.client.post(
+            reverse("register_detail", args=["student"]),
+            student_payload(email="not-an-email"),
+        )
+        self.assertContains(response, 'class="error-summary')
+        self.assertContains(response, "处需要修改")
+        self.assertContains(response, 'href="#id_email"')
+
+    def test_login_error_shows_summary(self):
+        response = self.client.post(
+            reverse("login_detail", args=["student"]),
+            {"uid": "2023000001", "password": RAW_PASSWORD},
+        )
+        self.assertContains(response, 'class="error-summary')
+        self.assertContains(response, "账号不存在")
+
+    def test_page_title_is_prefixed_for_screen_readers(self):
+        response = self.client.post(
+            reverse("login_detail", args=["student"]), {"uid": "", "password": ""}
+        )
+        self.assertContains(response, "<title>Error: ")
+
+    def test_no_summary_when_the_form_is_clean(self):
+        response = self.client.get(reverse("login_detail", args=["student"]))
+        self.assertNotContains(response, 'class="error-summary')
+
+
 class PasswordStrengthTests(TestCase):
     """密码强度校验：settings 里的 AUTH_PASSWORD_VALIDATORS 现在会真正生效。"""
 

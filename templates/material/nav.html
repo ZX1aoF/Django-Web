@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}语文素材管理系统{% endblock %}</title>
+    <title>{% if form.errors %}Error: {% endif %}{% block title %}语文素材管理系统{% endblock %}</title>
     <link href="{% static 'css/tokens.css' %}" rel="stylesheet">
     <link href="{% static 'css/app.css' %}" rel="stylesheet">
 </head>
@@ -78,11 +78,14 @@
             <h1 class="band__title">{% block page_title %}{% endblock %}</h1>
             <div class="band__actions">{% block actions %}{% endblock %}</div>
         </div>
+        {% block standfirst %}{% endblock %}
     </div>
 </div>
 
 <main class="content" id="main">
     <div class="wrap">
+        {% include "includes/error_summary.html" %}
+
         {% if messages %}
         <div class="toasts wrap__full">
             {% for message in messages %}
@@ -94,5 +97,7 @@
         {% block content %}{% endblock %}
     </div>
 </main>
+
+{% include "includes/enhance.html" %}
 </body>
 </html>

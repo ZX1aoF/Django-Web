@@ -2,16 +2,17 @@
 
 import shutil
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from material.models import Category, Material
-from material.views import get_user
+from material.views import PAGE_SIZE, get_user
 from user.models import Administrator, Student
 
 RAW_PASSWORD = "s3cret-pass"
@@ -202,6 +203,182 @@ class MaterialListViewTests(TestCase):
         self.login_student()
         response = self.client.get(reverse("material", args=["student"]))
         self.assertContains(response, "素材库还是空的")
+
+
+class MaterialCatalogTests(TestCase):
+    """列表页的「目录」能力：结果计数、排序、分页、分面计数、筛选标签。
+
+    这几件是图书馆目录（OPAC）类站点的标准配置，本版按参考资料补齐。
+    """
+
+    def setUp(self):
+        self.administrator = make_administrator()
+        self.category = Category.objects.create(name="目录测试甲", order=10)
+        self.other_category = Category.objects.create(name="目录测试乙", order=20)
+        self.url = reverse("material", args=["administrator"])
+        self.client.post(
+            reverse("login_detail", args=["administrator"]),
+            {"uid": self.administrator.get_id(), "password": RAW_PASSWORD},
+        )
+
+    def make(self, title, category=None, days_ago=0):
+        material = Material.objects.create(
+            title=title,
+            category=category or self.category,
+            body="正文",
+            created_by=self.administrator,
+        )
+        if days_ago:
+            # updated_at 是 auto_now，只能用 update() 绕过去造时间差
+            Material.objects.filter(pk=material.pk).update(
+                updated_at=timezone.now() - timedelta(days=days_ago)
+            )
+        return material
+
+    def test_total_count_is_shown(self):
+        self.make("甲")
+        self.make("乙")
+        response = self.client.get(self.url)
+        self.assertContains(response, "共 <strong>2</strong> 篇")
+
+    def test_filtered_view_says_so(self):
+        self.make("甲")
+        self.make("乙")
+        response = self.client.get(self.url, {"q": "甲"})
+        self.assertContains(response, "共 <strong>1</strong> 篇")
+        self.assertContains(response, "（已筛选）")
+
+    def test_default_sort_is_newest_first(self):
+        # 单字码点：乙(U+4E59) < 甲(U+7532)，所以标题升序与时间倒序的结果相反
+        self.make("乙素材", days_ago=5)
+        self.make("甲素材", days_ago=0)
+
+        content = self.client.get(self.url).content.decode()
+        self.assertLess(content.index("甲素材"), content.index("乙素材"))
+
+    def test_sort_by_title(self):
+        self.make("乙素材", days_ago=5)
+        self.make("甲素材", days_ago=0)
+
+        content = self.client.get(self.url, {"sort": "title"}).content.decode()
+        self.assertLess(content.index("乙素材"), content.index("甲素材"))
+
+    def test_unknown_sort_falls_back_to_default(self):
+        self.make("乙素材", days_ago=5)
+        self.make("甲素材", days_ago=0)
+
+        content = self.client.get(self.url, {"sort": "not-a-sort"}).content.decode()
+        self.assertLess(content.index("甲素材"), content.index("乙素材"))
+
+    def test_sort_control_renders_every_option(self):
+        response = self.client.get(self.url)
+        for label in ("最近更新", "最早更新", "标题"):
+            self.assertContains(response, label)
+
+    def test_pagination_splits_the_list(self):
+        for index in range(PAGE_SIZE + 3):
+            self.make("素材%03d" % index)
+
+        first = self.client.get(self.url)
+        self.assertEqual(first.context["page_obj"].number, 1)
+        self.assertEqual(first.context["total_count"], PAGE_SIZE + 3)
+        self.assertEqual(len(first.context["materials"]), PAGE_SIZE)
+        self.assertContains(first, "第 1 / 2 页")
+
+        second = self.client.get(self.url, {"page": 2})
+        self.assertEqual(second.context["page_obj"].number, 2)
+        self.assertEqual(len(second.context["materials"]), 3)
+
+    def test_out_of_range_page_falls_back_to_the_last_one(self):
+        for index in range(PAGE_SIZE + 1):
+            self.make("素材%03d" % index)
+
+        response = self.client.get(self.url, {"page": 999})
+        self.assertEqual(response.context["page_obj"].number, 2)
+
+    def test_pager_links_keep_the_active_filters(self):
+        for index in range(PAGE_SIZE + 1):
+            self.make("needle %02d" % index)
+
+        response = self.client.get(self.url, {"q": "needle"})
+        self.assertContains(response, 'href="?q=needle&amp;page=2"')
+
+    def test_category_facet_shows_counts(self):
+        self.make("甲", category=self.category)
+        self.make("乙", category=self.category)
+        self.make("丙", category=self.other_category)
+
+        response = self.client.get(self.url)
+        self.assertContains(response, "目录测试甲（2）")
+        self.assertContains(response, "目录测试乙（1）")
+
+    def test_category_facet_ignores_the_category_filter_itself(self):
+        """选中某分类后，其他分类的计数必须还在，否则分面等于废掉。"""
+        self.make("甲", category=self.category)
+        self.make("乙", category=self.other_category)
+
+        response = self.client.get(self.url, {"category": self.other_category.pk})
+        self.assertContains(response, "目录测试甲（1）")
+        self.assertContains(response, "目录测试乙（1）")
+
+    def test_active_filters_render_removable_chips(self):
+        self.make("abc")
+        response = self.client.get(
+            self.url, {"q": "abc", "category": self.category.pk}
+        )
+
+        self.assertContains(response, "当前条件")
+        self.assertContains(response, "关键词：abc")
+        self.assertContains(response, "分类：目录测试甲")
+        # 分类那个「×」只去掉 category，保留关键词
+        self.assertContains(response, 'href="%s?q=abc"' % self.url)
+        # 关键词那个「×」只去掉 q，保留分类
+        self.assertContains(response, 'href="%s?category=%d"' % (self.url, self.category.pk))
+
+    def test_no_chips_when_nothing_is_filtered(self):
+        self.make("abc")
+        response = self.client.get(self.url)
+        self.assertNotContains(response, "当前条件")
+
+
+class FormErrorSummaryTests(TestCase):
+    """提交失败时的错误摘要（参考 GOV.UK Design System 的 Error summary）。"""
+
+    def setUp(self):
+        self.administrator = make_administrator()
+        self.client.post(
+            reverse("login_detail", args=["administrator"]),
+            {"uid": self.administrator.get_id(), "password": RAW_PASSWORD},
+        )
+        self.empty_post = {"title": "", "category": "", "source": "", "body": ""}
+
+    def test_summary_lists_errors_and_links_to_the_fields(self):
+        response = self.client.post(
+            reverse("material_create", args=["administrator"]), self.empty_post
+        )
+        # 断言真实元素，而不是 "error-summary" 这个子串 ——
+        # 渐进增强脚本里的 data-error-summary 选择器也含这个子串
+        self.assertContains(response, 'class="error-summary')
+        self.assertContains(response, "处需要修改")
+        self.assertContains(response, 'href="#id_title"')
+        self.assertContains(response, 'href="#id_category"')
+
+    def test_summary_keeps_the_field_level_errors_too(self):
+        response = self.client.post(
+            reverse("material_create", args=["administrator"]), self.empty_post
+        )
+        # 两种提示都要有：摘要在页面顶部，字段旁的提示在字段下方
+        self.assertContains(response, "errorlist")
+
+    def test_page_title_is_prefixed_for_screen_readers(self):
+        response = self.client.post(
+            reverse("material_create", args=["administrator"]), self.empty_post
+        )
+        self.assertContains(response, "<title>Error: ")
+
+    def test_no_summary_when_the_form_is_clean(self):
+        response = self.client.get(reverse("material_create", args=["administrator"]))
+        self.assertNotContains(response, 'class="error-summary')
 
 
 class MaterialDetailTests(TestCase):

@@ -1,0 +1,26 @@
+{% comment %}
+表单错误摘要。做法参考 GOV.UK Design System 的 Error summary：
+
+  - 提交失败时在**页面顶部**给出一份汇总，并链接到出错的字段
+  - 每个字段旁边同时保留 Django 自己的 inline 错误
+
+为什么两个都要：用户填表时注意力在字段层，只有回看整页时才在页面层。
+只做其中一种，另一种时刻的用户就会漏掉。
+
+摘要带 tabindex="-1"，由 enhance.html 里的脚本把焦点移过来（GOV.UK 也要求这么做）。
+{% endcomment %}
+{% if form.errors %}
+<div class="error-summary wrap__full" role="alert" tabindex="-1" data-error-summary>
+    <p class="error-summary__title">有 {{ form.errors|length }} 处需要修改</p>
+    <ul class="error-summary__list">
+        {% for field in form %}
+        {% if field.errors %}
+        <li><a href="#{{ field.auto_id }}">{{ field.label }}：{{ field.errors.0 }}</a></li>
+        {% endif %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
