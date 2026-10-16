@@ -1,0 +1,6 @@
+# Django-Web 运行依赖
+# 安装：pip install -r requirements.txt
+#
+# 说明：Django 4.1 已于 2023-12 结束官方支持（EOL）。
+#       如需长期维护，可升级到 Django 4.2 LTS（注意同时升级 Python 到 3.8+）。
+Django==4.1.12
