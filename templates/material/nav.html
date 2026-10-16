@@ -25,6 +25,10 @@
         <a href="{% url 'material' kind=info.kind %}">素材库</a>
         {% if is_administrator %}
             <a href="{% url 'material_create' kind=info.kind %}">新建素材</a>
+            <a href="{% url 'material' kind=info.kind %}?status=pending">待审核{% if pending_count %} ({{ pending_count }}){% endif %}</a>
+        {% else %}
+            <a href="{% url 'material_create' kind=info.kind %}">我要投稿</a>
+            <a href="{% url 'material' kind=info.kind %}?mine=1">我的投稿</a>
         {% endif %}
     </div>
 

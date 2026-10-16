@@ -1,0 +1,38 @@
+{% extends "material/nav.html" %}
+
+{% block title %}审核素材 - 语文素材管理系统{% endblock %}
+
+{% block content %}
+<div class="material-form-container">
+    <h2 class="material-title">审核素材</h2>
+
+    <div class="review-preview">
+        <div class="review-preview-title">{{ material.title }}</div>
+        <div class="material-meta">
+            <span>
+                当前状态：<span class="status status-{{ material.status }}">{{ material.get_status_display }}</span>
+            </span>
+            <span>分类：{{ material.category.name }}</span>
+            <span>提交人：{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
+        </div>
+        <div class="review-body">{{ material.body|truncatechars:300|linebreaks }}</div>
+        <a class="review-more" href="{% url 'material_detail' info.kind material.pk %}" target="_blank" rel="noopener">查看全文</a>
+    </div>
+
+    {% if material.reviewed_at %}
+    <div class="review-note">
+        上一次审核：{{ material.reviewed_at|date:"Y-m-d H:i" }}
+        {% if material.review_comment %}　意见：{{ material.review_comment }}{% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="material-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="form-actions">
+            <input type="submit" value="提交审核结果" class="primary-button">
+            <a href="{% url 'material' info.kind %}{% if material.status == 'pending' %}?status=pending{% endif %}">返回</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

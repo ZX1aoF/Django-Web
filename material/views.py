@@ -4,8 +4,9 @@ from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
-from material.forms import MaterialForm
+from material.forms import MaterialForm, ReviewForm
 from material.models import Category, Material
 from user.constants import (
     GRADE_LENGTH,
@@ -22,6 +23,9 @@ MODELS = {
     KIND_STUDENT: Student,
     KIND_ADMINISTRATOR: Administrator,
 }
+
+# 学生处于这两种状态时还能自己改稿 / 重投；一旦通过就锁住，不能再改已发布的内容
+STUDENT_EDITABLE_STATUSES = (Material.Status.PENDING, Material.Status.REJECTED)
 
 
 def get_user(request, kind):
@@ -77,17 +81,50 @@ def base_context(request, **extra):
         "info": {"name": request.person.name, "kind": request.kind},
         "is_administrator": request.kind == KIND_ADMINISTRATOR,
     }
+
+    if request.kind == KIND_ADMINISTRATOR:
+        # 让导航栏上的「待审核」带上数量，管理员一眼能看到有没有活儿
+        context["pending_count"] = Material.objects.filter(
+            status=Material.Status.PENDING
+        ).count()
+
     context.update(extra)
     return context
 
 
+def visible_materials(kind, person):
+    """当前身份能看到的素材集合。
+
+    * 管理员：全部；
+    * 学生：已通过的公共素材，外加自己投的全部稿件（含待审核 / 已驳回）。
+    """
+    queryset = Material.objects.select_related("category", "created_by", "submitted_by")
+
+    if kind == KIND_ADMINISTRATOR:
+        return queryset
+
+    return queryset.filter(Q(status=Material.Status.APPROVED) | Q(submitted_by=person))
+
+
+def can_manage(material, kind, person):
+    """能否编辑 / 删除这条素材。
+
+    管理员不受限制；学生只能管自己还没通过审核的投稿。
+    """
+    if kind == KIND_ADMINISTRATOR:
+        return True
+    return material.is_owned_by(person, kind) and material.status in STUDENT_EDITABLE_STATUSES
+
+
 @require_person()
 def home(request, kind):
-    """素材库首页：支持按分类筛选与关键词搜索。"""
+    """素材库：按分类 / 关键词 / 状态筛选，学生可以只看自己的投稿。"""
     category_id = request.GET.get("category", "")
     keyword = request.GET.get("q", "").strip()
+    current_status = request.GET.get("status", "")
+    mine = request.GET.get("mine") == "1"
 
-    materials = Material.objects.select_related("category", "created_by")
+    materials = visible_materials(kind, request.person)
 
     if category_id.isdigit():
         materials = materials.filter(category_id=int(category_id))
@@ -99,35 +136,72 @@ def home(request, kind):
             | Q(body__icontains=keyword)
         )
 
+    # 状态筛选只对管理员开放：学生本来就看不到别人的待审核稿件
+    if kind == KIND_ADMINISTRATOR and current_status in Material.Status.values:
+        materials = materials.filter(status=current_status)
+
+    if mine:
+        if kind == KIND_ADMINISTRATOR:
+            materials = materials.filter(created_by=request.person)
+        else:
+            materials = materials.filter(submitted_by=request.person)
+
+    materials = list(materials)
+    for material in materials:
+        material.can_manage = can_manage(material, kind, request.person)
+
     context = base_context(
         request,
         materials=materials,
         categories=Category.objects.all(),
+        status_choices=Material.Status.choices,
         current_category=category_id,
+        current_status=current_status,
         keyword=keyword,
+        mine=mine,
     )
     return render(request, "material/list.html", context)
 
 
 @require_person()
 def detail(request, kind, pk):
-    """素材详情，学生与管理员都能看。"""
-    material = get_object_or_404(
-        Material.objects.select_related("category", "created_by"), pk=pk
+    """素材详情。
+
+    直接拿可见集合去查，所以学生访问别人的待审核稿件会得到 404，
+    既看不到内容，也探测不出这条记录存不存在。
+    """
+    material = get_object_or_404(visible_materials(kind, request.person), pk=pk)
+
+    context = base_context(
+        request,
+        material=material,
+        can_manage=can_manage(material, kind, request.person),
     )
-    return render(request, "material/detail.html", base_context(request, material=material))
+    return render(request, "material/detail.html", context)
 
 
-@require_person(administrator_only=True)
+@require_person()
 def create(request, kind):
-    """新建素材，仅管理员。"""
+    """新建素材。管理员录入即发布，学生投稿进入待审核。"""
     if request.method == "POST":
         form = MaterialForm(request.POST, request.FILES)
         if form.is_valid():
             material = form.save(commit=False)
-            material.created_by = request.person
+
+            if kind == KIND_ADMINISTRATOR:
+                material.created_by = request.person
+                material.status = Material.Status.APPROVED
+            else:
+                material.submitted_by = request.person
+                material.status = Material.Status.PENDING
+
             material.save()
-            messages.success(request, "素材《%s》已创建。" % material.title)
+
+            if kind == KIND_ADMINISTRATOR:
+                messages.success(request, "素材《%s》已创建。" % material.title)
+            else:
+                messages.success(request, "投稿《%s》已提交，等待管理员审核。" % material.title)
+
             return redirect("material_detail", kind=kind, pk=material.pk)
     else:
         form = MaterialForm()
@@ -137,15 +211,26 @@ def create(request, kind):
     )
 
 
-@require_person(administrator_only=True)
+@require_person()
 def edit(request, kind, pk):
-    """编辑素材，仅管理员。"""
+    """编辑素材：管理员可改全部，学生只能改自己待审核 / 已驳回的稿。"""
     material = get_object_or_404(Material, pk=pk)
+
+    if not can_manage(material, kind, request.person):
+        return HttpResponse(PERMISSION_DENIED, status=403)
 
     if request.method == "POST":
         form = MaterialForm(request.POST, request.FILES, instance=material)
         if form.is_valid():
-            form.save()
+            material = form.save(commit=False)
+
+            if kind == KIND_STUDENT:
+                # 学生改完自己的稿子要重新走一遍审核，并清掉上一次的审核结论
+                material.status = Material.Status.PENDING
+                material.review_comment = ""
+                material.reviewed_at = None
+
+            material.save()
             messages.success(request, "素材《%s》已更新。" % material.title)
             return redirect("material_detail", kind=kind, pk=material.pk)
     else:
@@ -158,10 +243,13 @@ def edit(request, kind, pk):
     )
 
 
-@require_person(administrator_only=True)
+@require_person()
 def delete(request, kind, pk):
-    """删除素材，仅管理员。GET 先确认，POST 才真正删除。"""
+    """删除素材：权限同编辑。GET 先确认，POST 才真正删除。"""
     material = get_object_or_404(Material, pk=pk)
+
+    if not can_manage(material, kind, request.person):
+        return HttpResponse(PERMISSION_DENIED, status=403)
 
     if request.method == "POST":
         title = material.title
@@ -173,4 +261,36 @@ def delete(request, kind, pk):
         request,
         "material/confirm_delete.html",
         base_context(request, material=material),
+    )
+
+
+@require_person(administrator_only=True)
+def review(request, kind, pk):
+    """审核素材，仅管理员。"""
+    material = get_object_or_404(Material, pk=pk)
+
+    if request.method == "POST":
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            approved = form.cleaned_data["action"] == ReviewForm.ACTION_APPROVE
+
+            material.status = (
+                Material.Status.APPROVED if approved else Material.Status.REJECTED
+            )
+            material.review_comment = form.cleaned_data["comment"]
+            material.reviewed_at = timezone.now()
+            material.save(update_fields=["status", "review_comment", "reviewed_at"])
+
+            messages.success(
+                request,
+                "素材《%s》已%s。" % (material.title, "通过" if approved else "驳回"),
+            )
+            return redirect("material_review", kind=kind, pk=material.pk)
+    else:
+        form = ReviewForm()
+
+    return render(
+        request,
+        "material/review.html",
+        base_context(request, material=material, form=form),
     )

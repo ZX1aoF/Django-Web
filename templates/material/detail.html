@@ -7,11 +7,27 @@
     <h2 class="material-title">{{ material.title }}</h2>
 
     <div class="material-meta">
+        <span>
+            状态：<span class="status status-{{ material.status }}">{{ material.get_status_display }}</span>
+        </span>
         <span>分类：{{ material.category.name }}</span>
         {% if material.source %}<span>出处：{{ material.source }}</span>{% endif %}
-        <span>录入人：{{ material.created_by.name|default:"—" }}</span>
+        <span>
+            提交人：{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}
+        </span>
         <span>更新于 {{ material.updated_at|date:"Y-m-d H:i" }}</span>
     </div>
+
+    {% if material.status == "rejected" %}
+    <div class="review-note">
+        <strong>审核未通过：</strong>{{ material.review_comment|default:"管理员未填写原因" }}
+        {% if can_manage %}<div class="review-note-hint">修改并保存后，稿件会重新回到「待审核」。</div>{% endif %}
+    </div>
+    {% elif material.status == "pending" %}
+    <div class="review-note is-pending">
+        这条素材正在等待管理员审核，通过后其他同学才能看到。
+    </div>
+    {% endif %}
 
     <div class="material-body">{{ material.body|linebreaks }}</div>
 
@@ -23,9 +39,12 @@
 
     <div class="material-actions">
         <a href="{% url 'material' info.kind %}">← 返回素材库</a>
-        {% if is_administrator %}
+        {% if can_manage %}
         <a href="{% url 'material_edit' info.kind material.pk %}">编辑</a>
         <a href="{% url 'material_delete' info.kind material.pk %}">删除</a>
+        {% endif %}
+        {% if is_administrator %}
+        <a href="{% url 'material_review' info.kind material.pk %}">审核</a>
         {% endif %}
     </div>
 </div>

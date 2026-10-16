@@ -3,8 +3,19 @@
 {% block title %}素材库 - 语文素材管理系统{% endblock %}
 
 {% block content %}
+<div class="scope-tabs">
+    <a class="{% if not mine %}active{% endif %}"
+       href="{% url 'material' info.kind %}{% if current_status %}?status={{ current_status }}{% endif %}">
+        {% if is_administrator %}全部素材{% else %}素材库{% endif %}
+    </a>
+    <a class="{% if mine %}active{% endif %}" href="{% url 'material' info.kind %}?mine=1">
+        {% if is_administrator %}我录入的{% else %}我的投稿{% endif %}
+    </a>
+</div>
+
 <div class="material-toolbar">
     <form method="get" class="material-search">
+        {% if mine %}<input type="hidden" name="mine" value="1">{% endif %}
         <input type="text" name="q" value="{{ keyword }}" placeholder="搜索标题 / 出处 / 正文">
         <select name="category">
             <option value="">全部分类</option>
@@ -15,15 +26,23 @@
             </option>
             {% endfor %}
         </select>
+        {% if is_administrator %}
+        <select name="status">
+            <option value="">全部状态</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
         <input type="submit" value="搜索">
-        {% if keyword or current_category %}
-        <a class="reset-link" href="{% url 'material' info.kind %}">重置</a>
+        {% if keyword or current_category or current_status %}
+        <a class="reset-link" href="{% url 'material' info.kind %}{% if mine %}?mine=1{% endif %}">重置</a>
         {% endif %}
     </form>
 
-    {% if is_administrator %}
-    <a class="primary-button" href="{% url 'material_create' info.kind %}">＋ 新建素材</a>
-    {% endif %}
+    <a class="primary-button" href="{% url 'material_create' info.kind %}">
+        {% if is_administrator %}＋ 新建素材{% else %}＋ 投稿素材{% endif %}
+    </a>
 </div>
 
 {% if materials %}
@@ -33,9 +52,10 @@
             <th>标题</th>
             <th>分类</th>
             <th>出处 / 作者</th>
-            <th>录入人</th>
+            <th>提交人</th>
+            <th>状态</th>
             <th>更新时间</th>
-            {% if is_administrator %}<th>操作</th>{% endif %}
+            <th>操作</th>
         </tr>
     </thead>
     <tbody>
@@ -47,24 +67,36 @@
             </td>
             <td>{{ material.category.name }}</td>
             <td>{{ material.source|default:"—" }}</td>
-            <td>{{ material.created_by.name|default:"—" }}</td>
+            <td>
+                {{ material.author_name }}
+                {% if material.submitted_by %}<span class="tag">学生</span>{% endif %}
+            </td>
+            <td>
+                <span class="status status-{{ material.status }}">{{ material.get_status_display }}</span>
+            </td>
             <td>{{ material.updated_at|date:"Y-m-d H:i" }}</td>
-            {% if is_administrator %}
             <td class="material-actions">
+                {% if material.can_manage %}
                 <a href="{% url 'material_edit' info.kind material.pk %}">编辑</a>
                 <a href="{% url 'material_delete' info.kind material.pk %}">删除</a>
+                {% endif %}
+                {% if is_administrator %}
+                <a href="{% url 'material_review' info.kind material.pk %}">审核</a>
+                {% endif %}
             </td>
-            {% endif %}
         </tr>
         {% endfor %}
     </tbody>
 </table>
 {% else %}
 <div class="empty-tip">
-    {% if keyword or current_category %}
-        没有匹配的素材，换个关键词或分类试试。
+    {% if keyword or current_category or current_status %}
+        没有匹配的素材，换个关键词或筛选项试试。
+    {% elif mine %}
+        你还没有投稿过素材。点右上角「＋ 投稿素材」试试。
     {% else %}
-        素材库还是空的。{% if is_administrator %}点右上角「＋ 新建素材」添加第一条吧。{% endif %}
+        素材库还是空的。
+        {% if is_administrator %}点右上角「＋ 新建素材」添加第一条吧。{% endif %}
     {% endif %}
 </div>
 {% endif %}

@@ -52,3 +52,37 @@ class MaterialForm(forms.ModelForm):
         if attachment:
             validate_attachment(attachment)
         return attachment
+
+
+class ReviewForm(forms.Form):
+    """管理员审核素材时填写的表单。"""
+
+    ACTION_APPROVE = "approve"
+    ACTION_REJECT = "reject"
+
+    action = forms.ChoiceField(
+        label="审核结果",
+        choices=[
+            (ACTION_APPROVE, "通过"),
+            (ACTION_REJECT, "驳回"),
+        ],
+        widget=forms.RadioSelect,
+        initial=ACTION_APPROVE,
+    )
+    comment = forms.CharField(
+        label="审核意见",
+        required=False,
+        max_length=255,
+        widget=forms.Textarea(
+            attrs={"rows": 3, "placeholder": "驳回时请写明原因，投稿的学生可以看到"}
+        ),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # 驳回必须说明原因，否则学生不知道要改什么
+        if cleaned_data.get("action") == self.ACTION_REJECT and not cleaned_data.get("comment"):
+            self.add_error("comment", "驳回时必须填写原因")
+
+        return cleaned_data

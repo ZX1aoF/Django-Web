@@ -5,6 +5,7 @@ import tempfile
 from datetime import date
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
@@ -235,7 +236,7 @@ class MaterialDetailTests(TestCase):
 
 
 class MaterialPermissionTests(TestCase):
-    """学生只能看，不能改。"""
+    """学生不能改动不属于自己的素材。"""
 
     def setUp(self):
         self.student = make_student()
@@ -249,9 +250,24 @@ class MaterialPermissionTests(TestCase):
             {"uid": self.student.get_id(), "password": RAW_PASSWORD},
         )
 
-    def test_student_cannot_open_create_page(self):
-        response = self.client.get(reverse("material_create", args=["student"]))
-        self.assertEqual(response.status_code, 403)
+    def test_student_submission_is_not_published_directly(self):
+        # 投稿入口对学生开放，但提交后是「待审核」，不会直接进公共素材库
+        response = self.client.post(
+            reverse("material_create", args=["student"]),
+            {
+                "title": "学生投稿",
+                "category": self.category.pk,
+                "source": "",
+                "body": "床前明月光",
+            },
+        )
+        material = Material.objects.get(title="学生投稿")
+
+        self.assertRedirects(
+            response, reverse("material_detail", args=["student", material.pk])
+        )
+        self.assertEqual(material.status, Material.Status.PENDING)
+        self.assertEqual(material.submitted_by, self.student)
 
     def test_student_cannot_open_edit_page(self):
         response = self.client.get(reverse("material_edit", args=["student", self.material.pk]))
@@ -423,4 +439,341 @@ class MaterialAttachmentTests(TestCase):
 
         self.assertEqual(Material.objects.count(), 1)
         self.assertFalse(Material.objects.get().attachment)
+
+
+class MaterialAuthorConstraintTests(TestCase):
+    def test_material_cannot_have_two_authors(self):
+        # created_by 与 submitted_by 至多只有一个非空，由 CheckConstraint 兜底
+        category = Category.objects.create(name="测试分类甲", order=10)
+        administrator = make_administrator()
+        student = make_student()
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Material.objects.create(
+                    title="两个作者",
+                    category=category,
+                    body="正文",
+                    created_by=administrator,
+                    submitted_by=student,
+                )
+
+
+class StudentSubmissionTests(TestCase):
+    """学生投稿：默认待审核，只有自己和管理员看得到。"""
+
+    def setUp(self):
+        self.student = make_student()
+        self.other_student = make_student(number="000002")
+        self.administrator = make_administrator()
+        self.category = Category.objects.create(name="测试分类甲", order=10)
+
+    def login(self, kind, uid):
+        return self.client.post(
+            reverse("login_detail", args=[kind]), {"uid": uid, "password": RAW_PASSWORD}
+        )
+
+    def payload(self, **overrides):
+        data = {
+            "title": "我的投稿",
+            "category": self.category.pk,
+            "source": "佚名",
+            "body": "床前明月光，疑是地上霜。",
+        }
+        data.update(overrides)
+        return data
+
+    def submit(self, student, **overrides):
+        """以指定学生身份投稿。
+
+        follow=True 是必要的：投稿成功后会往 messages 里塞一条带标题的提示，
+        如果不跟随跳转把它渲染掉，这条消息会残留到下一个请求里，
+        让后续的 assertNotContains 误判标题还在页面上。
+        """
+        self.login("student", student.get_id())
+        return self.client.post(
+            reverse("material_create", args=["student"]),
+            self.payload(**overrides),
+            follow=True,
+        )
+
+    def test_student_can_open_the_submit_page(self):
+        self.login("student", self.student.get_id())
+        response = self.client.get(reverse("material_create", args=["student"]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "投稿素材")
+        self.assertContains(response, "需要管理员审核")
+
+    def test_submission_is_pending_and_attributed_to_the_student(self):
+        self.submit(self.student)
+        material = Material.objects.get()
+
+        self.assertEqual(material.status, Material.Status.PENDING)
+        self.assertEqual(material.submitted_by, self.student)
+        self.assertIsNone(material.created_by)
+        self.assertEqual(material.author_kind, "student")
+        self.assertEqual(material.author_name, self.student.name)
+        self.assertEqual(material.author_uid, self.student.get_id())
+
+    def test_submission_lands_on_detail_with_pending_notice(self):
+        response = self.submit(self.student)
+
+        # 一次跳转，最终停在详情页
+        self.assertEqual(len(response.redirect_chain), 1)
+        self.assertEqual(response.redirect_chain[0][1], 302)
+        self.assertContains(response, "通过后其他同学才能看到")
+        self.assertContains(response, "提交人：")
+
+    def test_owner_sees_own_pending_submission_in_the_list(self):
+        self.submit(self.student, title="未审核的稿子")
+        response = self.client.get(reverse("material", args=["student"]))
+
+        self.assertContains(response, "未审核的稿子")
+
+    def test_other_students_cannot_see_pending_submissions(self):
+        self.submit(self.student, title="未审核的稿子")
+
+        self.login("student", self.other_student.get_id())
+        response = self.client.get(reverse("material", args=["student"]))
+
+        self.assertNotContains(response, "未审核的稿子")
+
+    def test_other_students_get_404_on_pending_detail(self):
+        self.submit(self.student)
+        material = Material.objects.get()
+
+        self.login("student", self.other_student.get_id())
+        response = self.client.get(
+            reverse("material_detail", args=["student", material.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_mine_filter_lists_only_own_submissions(self):
+        self.submit(self.student, title="我的稿子")
+        self.submit(self.other_student, title="别人的稿子")
+
+        response = self.client.get(reverse("material", args=["student"]), {"mine": "1"})
+
+        self.assertContains(response, "别人的稿子")
+        self.assertNotContains(response, "我的稿子")
+
+    def test_student_can_edit_own_pending_submission(self):
+        self.submit(self.student)
+        material = Material.objects.get()
+
+        response = self.client.post(
+            reverse("material_edit", args=["student", material.pk]),
+            self.payload(title="改过的标题"),
+        )
+        self.assertRedirects(
+            response, reverse("material_detail", args=["student", material.pk])
+        )
+
+        material.refresh_from_db()
+        self.assertEqual(material.title, "改过的标题")
+        self.assertEqual(material.status, Material.Status.PENDING)
+
+    def test_student_can_delete_own_pending_submission(self):
+        self.submit(self.student)
+        material = Material.objects.get()
+
+        response = self.client.post(
+            reverse("material_delete", args=["student", material.pk])
+        )
+        self.assertRedirects(response, reverse("material", args=["student"]))
+        self.assertFalse(Material.objects.filter(pk=material.pk).exists())
+
+    def test_student_cannot_touch_another_students_submission(self):
+        self.submit(self.student)
+        material = Material.objects.get()
+
+        self.login("student", self.other_student.get_id())
+        self.assertEqual(
+            self.client.get(
+                reverse("material_edit", args=["student", material.pk])
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("material_delete", args=["student", material.pk])
+            ).status_code,
+            403,
+        )
+        self.assertTrue(Material.objects.filter(pk=material.pk).exists())
+
+
+class ReviewWorkflowTests(TestCase):
+    """管理员审核：通过之后才进入公共素材库。"""
+
+    def setUp(self):
+        self.student = make_student()
+        self.administrator = make_administrator()
+        self.category = Category.objects.create(name="测试分类甲", order=10)
+        self.material = Material.objects.create(
+            title="待审核的投稿",
+            category=self.category,
+            source="佚名",
+            body="床前明月光，疑是地上霜。",
+            submitted_by=self.student,
+            status=Material.Status.PENDING,
+        )
+
+    def login(self, kind, uid):
+        return self.client.post(
+            reverse("login_detail", args=[kind]), {"uid": uid, "password": RAW_PASSWORD}
+        )
+
+    def login_student(self):
+        return self.login("student", self.student.get_id())
+
+    def login_administrator(self):
+        return self.login("administrator", self.administrator.get_id())
+
+    def review(self, action, comment=""):
+        return self.client.post(
+            reverse("material_review", args=["administrator", self.material.pk]),
+            {"action": action, "comment": comment},
+        )
+
+    def test_student_cannot_open_the_review_page(self):
+        self.login_student()
+        response = self.client.get(
+            reverse("material_review", args=["student", self.material.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_administrator_can_open_the_review_page(self):
+        self.login_administrator()
+        response = self.client.get(
+            reverse("material_review", args=["administrator", self.material.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "审核素材")
+        self.assertContains(response, "待审核的投稿")
+
+    def test_approve_marks_the_material_approved(self):
+        self.login_administrator()
+        response = self.review("approve", "内容合适")
+
+        self.assertRedirects(
+            response,
+            reverse("material_review", args=["administrator", self.material.pk]),
+        )
+
+        self.material.refresh_from_db()
+        self.assertEqual(self.material.status, Material.Status.APPROVED)
+        self.assertEqual(self.material.review_comment, "内容合适")
+        self.assertIsNotNone(self.material.reviewed_at)
+
+    def test_approved_material_becomes_visible_to_other_students(self):
+        other = make_student(number="000009")
+
+        self.login_administrator()
+        self.review("approve")
+
+        self.login("student", other.get_id())
+        response = self.client.get(reverse("material", args=["student"]))
+        self.assertContains(response, "待审核的投稿")
+
+    def test_reject_requires_a_comment(self):
+        self.login_administrator()
+        response = self.review("reject", "")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("comment", response.context["form"].errors)
+
+        self.material.refresh_from_db()
+        self.assertEqual(self.material.status, Material.Status.PENDING)
+
+    def test_reject_reason_is_shown_to_the_author(self):
+        self.login_administrator()
+        self.review("reject", "出处不明，请补充")
+
+        self.login_student()
+        response = self.client.get(
+            reverse("material_detail", args=["student", self.material.pk])
+        )
+        self.assertContains(response, "出处不明，请补充")
+
+    def test_editing_a_rejected_submission_sends_it_back_to_pending(self):
+        self.material.status = Material.Status.REJECTED
+        self.material.review_comment = "请补充出处"
+        self.material.save()
+
+        self.login_student()
+        response = self.client.post(
+            reverse("material_edit", args=["student", self.material.pk]),
+            {
+                "title": "补好出处的投稿",
+                "category": self.category.pk,
+                "source": "李白",
+                "body": "床前明月光",
+            },
+        )
+        self.assertRedirects(
+            response, reverse("material_detail", args=["student", self.material.pk])
+        )
+
+        self.material.refresh_from_db()
+        self.assertEqual(self.material.status, Material.Status.PENDING)
+        self.assertEqual(self.material.review_comment, "")
+
+    def test_approved_submission_is_locked_for_the_author(self):
+        self.material.status = Material.Status.APPROVED
+        self.material.save()
+
+        self.login_student()
+        self.assertEqual(
+            self.client.get(
+                reverse("material_edit", args=["student", self.material.pk])
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("material_delete", args=["student", self.material.pk])
+            ).status_code,
+            403,
+        )
+
+    def test_administrator_created_material_is_approved_immediately(self):
+        self.login_administrator()
+        self.client.post(
+            reverse("material_create", args=["administrator"]),
+            {
+                "title": "管理员录入",
+                "category": self.category.pk,
+                "source": "",
+                "body": "正文",
+            },
+        )
+
+        material = Material.objects.get(title="管理员录入")
+        self.assertEqual(material.status, Material.Status.APPROVED)
+        self.assertEqual(material.created_by, self.administrator)
+        self.assertIsNone(material.submitted_by)
+
+    def test_status_filter_narrows_the_list_for_administrators(self):
+        Material.objects.create(
+            title="已通过的素材", category=self.category, body="x"
+        )
+
+        self.login_administrator()
+        response = self.client.get(
+            reverse("material", args=["administrator"]), {"status": "pending"}
+        )
+
+        self.assertContains(response, "待审核的投稿")
+        self.assertNotContains(response, "已通过的素材")
+
+    def test_pending_count_is_shown_in_the_navigation(self):
+        self.login_administrator()
+        response = self.client.get(reverse("material", args=["administrator"]))
+
+        self.assertContains(response, "待审核 (1)")
+
 

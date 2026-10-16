@@ -14,4 +14,5 @@ urlpatterns = [
     path("<slug:kind>/detail/<int:pk>", views.detail, name="material_detail"),
     path("<slug:kind>/edit/<int:pk>", views.edit, name="material_edit"),
     path("<slug:kind>/delete/<int:pk>", views.delete, name="material_delete"),
+    path("<slug:kind>/review/<int:pk>", views.review, name="material_review"),
 ]

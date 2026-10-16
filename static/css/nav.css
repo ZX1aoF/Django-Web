@@ -415,3 +415,140 @@ body {
     font-size: 13px;
 }
 
+/* ---------- 状态徽章 ---------- */
+
+.status {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.status-pending {
+    background: #fff6e0;
+    color: #7a4a00;
+    border: 1px solid #f0d59a;
+}
+
+.status-approved {
+    background: #e4f5e9;
+    color: #1b4d20;
+    border: 1px solid #b3ddc0;
+}
+
+.status-rejected {
+    background: #fdeaea;
+    color: #8c1c1c;
+    border: 1px solid #f0bcbc;
+}
+
+/* ---------- 范围切换（素材库 / 我的投稿） ---------- */
+
+.scope-tabs {
+    margin-bottom: 14px;
+    border-bottom: 1px solid #ddd;
+}
+
+.scope-tabs a {
+    display: inline-block;
+    padding: 6px 16px;
+    margin-bottom: -1px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: #666;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.scope-tabs a.active {
+    background: #fff;
+    border-color: #ddd;
+    color: #4a2c98;
+    font-weight: bold;
+}
+
+/* ---------- 审核相关 ---------- */
+
+.review-note {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: #fdeaea;
+    border-left: 4px solid #c62828;
+    color: #8c1c1c;
+    font-size: 14px;
+}
+
+.review-note.is-pending {
+    background: #fff6e0;
+    border-left-color: #ef8f00;
+    color: #7a4a00;
+}
+
+.review-note-hint {
+    margin-top: 4px;
+    color: #a94442;
+    font-size: 13px;
+}
+
+.review-preview {
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    border: 1px solid #e6e2f2;
+    border-radius: 8px;
+    background: #faf8fe;
+}
+
+.review-preview-title {
+    margin-bottom: 8px;
+    color: #33215f;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.review-body {
+    margin-top: 10px;
+    color: #444;
+    font-size: 14px;
+    line-height: 1.8;
+    word-break: break-word;
+}
+
+.review-more {
+    display: inline-block;
+    margin-top: 8px;
+    color: #4a2c98;
+    font-size: 13px;
+}
+
+.form-hint {
+    margin-bottom: 14px;
+    padding: 9px 14px;
+    border-left: 4px solid #4a2c98;
+    border-radius: 6px;
+    background: #f4f2fa;
+    color: #4a3a75;
+    font-size: 13px;
+}
+
+/* 让 RadioSelect 渲染出来的 ul 跟表单其它字段对齐 */
+.material-form ul {
+    margin: 0 0 0 84px;
+    padding: 0;
+    list-style: none;
+}
+
+.material-form ul li {
+    display: inline-block;
+    margin-right: 18px;
+}
+
+.material-form ul li label {
+    min-width: auto;
+    font-weight: normal;
+    color: #333;
+}
+
+
