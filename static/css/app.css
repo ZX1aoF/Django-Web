@@ -1215,17 +1215,44 @@ input[type="radio"] {
   padding: var(--space-6) var(--gutter) var(--space-7);
   color: var(--panel-ink-text);
   background-color: var(--panel-ink);
+  /* 暗面靠光做层次：左上角透进来的朱砂暖光 + 纸面那一侧的反光 + 底部压深。
+     不用网格线 —— 规则格子会把封面读成制图稿。 */
   background-image:
-    repeating-linear-gradient(
-      to right,
-      var(--panel-ink-line) 0 var(--rule-thin),
-      transparent var(--rule-thin) var(--grid-size)
-    ),
-    repeating-linear-gradient(
-      to bottom,
-      var(--panel-ink-line) 0 var(--rule-thin),
-      transparent var(--rule-thin) var(--grid-size)
-    );
+    radial-gradient(78% 62% at 0% 0%, var(--panel-ink-glow) 0%, transparent 60%),
+    radial-gradient(64% 92% at 100% 44%, var(--panel-ink-light) 0%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, var(--panel-ink-deep) 100%);
+  border-block-end: var(--rule-thick) solid var(--accent);
+}
+
+/* 封面水印：把签名元素「印章」放大到封面尺度，压在右下角并被裁掉一角。
+   窄屏空间不够会挤到正文，所以在宽屏才出现。 */
+.auth__seal {
+  position: absolute;
+  z-index: 0;
+  inset-block-end: calc(var(--space-8) * -1);
+  inset-inline-end: calc(var(--space-6) * -1);
+  display: none;
+  place-items: center;
+  inline-size: 12rem;
+  block-size: 12rem;
+  color: var(--panel-ink-mark);
+  border: var(--rule-thick) solid currentColor;
+  border-radius: var(--radius-sm);
+  transform: rotate(-7deg);
+}
+
+.auth__seal-text {
+  writing-mode: vertical-rl;
+  font-family: var(--font-kai);
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-wide);
+}
+
+/* 水印在水印层，正文在它上面 */
+.auth__ink > :not(.auth__seal) {
+  position: relative;
+  z-index: 1;
 }
 
 .auth__ink a {
@@ -1464,6 +1491,12 @@ input[type="radio"] {
     padding: var(--space-8) var(--space-7);
     margin-inline-end: -3rem;
     clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
+    /* 斜切边与纸面咬合，这里再加底线会和斜边打架 */
+    border-block-end: 0;
+  }
+
+  .auth__seal {
+    display: grid;
   }
 
   .auth__paper {
