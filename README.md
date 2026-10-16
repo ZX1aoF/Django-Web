@@ -101,8 +101,9 @@ Django-Web/
 │   ├── user/               # auth_base / login_home / login_detail / register / register_home / update
 │   └── material/           # nav / list / detail / form / confirm_delete / review
 ├── static/
-│   └── css/                # tokens.css（设计令牌）/ app.css（外壳、组件、打印样式）
-├── tools/                  # 前端自检脚本（对比度、结构）+ 演示数据脚本 + 对照页生成
+│   ├── css/                # tokens.css（设计令牌）/ app.css（外壳、组件、打印样式）
+│   └── img/                # 封面插画：白描 / 素描 / 水墨（脚本生成，三张同一构图）
+├── tools/                  # 自检脚本（对比度、结构）+ 演示数据 + 封面插画生成与预览
 ├── media/                  # 用户上传的素材附件（不纳入版本控制）
 ├── manage.py
 ├── requirements.txt
@@ -302,6 +303,30 @@ python manage.py test
 
 **方向选择的理由**：这套系统的内容本身就是中文文学素材（诗词、文言文、现代文阅读）。印刷品的字体与版式语言是这个题材的天然表达，也让它一眼区别于通用的后台管理模板。
 
+### 封面插画：一幅竹，三种技法
+
+登录 / 注册页的封面是**浅色纸面加一幅竹**，画心可选三种技法：
+
+| 类 | 技法 | 说明 |
+| --- | --- | --- |
+| `cover--baimiao` | **白描** | 单线勾勒、不皴不染，只勾轮廓与主脉 |
+| `cover--sketch` | **素描** | 铅笔排线，明暗靠线条疏密；同一轮廓轻错开描两遍，像反复描过 |
+| `cover--wash` | **水墨** | 墨分浓淡，叶根浓、叶尖淡，边缘用模糊化开 |
+
+三张画**共用同一份几何**（`tools/make_cover_art.py` 里的竹竿 / 枝条 / 竹叶 / 石），
+渲染方式不同 —— 这样对比的才是技法，不是构图。几何用折线表达（贝塞尔采样），
+所以 SVG 与本地预览 PNG 能画得完全一致。
+
+画心的安放：`background-size` 与 `background-position` 把它摆在右下，再用一道
+**不透明的纸色渐隐**压在画心上，把文字区彻底让干净 —— 所以文字对比度与有没有画无关。
+
+> 用 `?cover=baimiao|sketch|wash` 可以切换（走白名单，参数非法回落白描）。
+> 定版之后把 `templates/user/auth_base.html` 里的分支与 app.css 里另外两段删掉即可。
+
+**这里踩过一个坑值得记**：稿纸格（`repeating-linear-gradient`）留在浅色纸面上是质感
+（透明度 0.07），搬到近黑暗面上用 18% 不透明线就变成了制图网格。**给暗面做层次要用光，
+不要用线** —— 所以暗面封面整个废弃了，改成浅色纸面 + 插画。
+
 ### 签名元素只有两个，都很克制
 
 1. **钤印式状态方章** —— 状态不写成彩色小标签，而是一枚描边方章（待审核 / 已通过 / 已驳回），方形小圆角、略作倾斜，像盖上去的印。状态同时带文字，不只靠颜色表达。
@@ -332,7 +357,7 @@ python manage.py test
 | 统计 | 顶部 KPI 卡片行 | 移到**页边批注栏**（marginalia），按账本栏目数字排布 |
 | 圆角 | 胶囊（最大到 999px） | 印刷方角（1–5px） |
 | 阴影 | 卡片浮起的大投影 | 纸叠纸：1px 硬阴影 + 发丝线 |
-| 登录页 | 深色品牌板 + 表单卡 | **墨面 + 纸面斜切咬合**，墨面上有稿纸格 |
+| 登录页 | 深色品牌板 + 表单卡 | **浅色纸面上放一幅竹**，竹与纸面斜切咬合 |
 | 正文 | 无衬线 | 详情页正文按「引文」处理：楷体 + 朱砂边线 |
 
 ### 令牌分三层
@@ -359,6 +384,13 @@ python tools/check_tokens_contrast.py static/css/tokens.css
 # 先把页面抓成本地 html，再跑校验：
 bash tools/capture_pages.sh http://127.0.0.1:8000 /tmp/pages
 python tools/check_frontend.py . /tmp/pages
+
+# 重新生成封面插画（三张 SVG）与预览图
+python tools/make_cover_art.py --preview
+python tools/preview_cover_art.py     # 三张画并排成一张 PNG
+
+# 封面成稿模拟：按 app.css 的规则合成，用来核对构图（宽屏 / 窄屏各一张）
+python tools/mock_cover.py
 ```
 
 > 两项**无法程序化验证**、本次也未验证的内容：各断点下的真实视觉观感、是否出现元素重叠。脚本能覆盖结构与规则，覆盖不了「好不好看」。本机浏览器截图一律超出工具的体积上限（`clip` 裁剪也绕不过去），所以这一步需要你在浏览器里按 360 / 768 / 1280 / 1600 宽度人工过一遍。

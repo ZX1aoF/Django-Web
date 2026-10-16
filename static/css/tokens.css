@@ -72,16 +72,12 @@
   --paper-0-fade: rgba(250, 246, 238, 0);
   --paper-1-fade: rgba(242, 236, 224, 0);
 
-  /* 墨色面板：浅色主题里唯一的暗面，用在登录 / 注册页的封面。
-     暗面靠「光」做出层次，而不是靠网格线 —— 规则网格在近黑底上会读成
-     制图格子，跟书卷气不搭。 */
-  --panel-ink: var(--ink-0);
-  --panel-ink-text: var(--paper-0);
-  --panel-ink-muted: var(--ink-3);
-  --panel-ink-glow: rgba(163, 46, 34, 0.3);
-  --panel-ink-light: rgba(250, 246, 238, 0.06);
-  --panel-ink-deep: rgba(0, 0, 0, 0.45);
-  --panel-ink-mark: rgba(250, 246, 238, 0.075);
+  /* 封面：浅色纸面 + 一幅竹。三种技法（白描 / 素描 / 水墨）同构图，
+     由 app.css 里的 .cover--* 覆盖下面两个令牌来切换。
+     上一版是近黑面板 + 稿纸格，读起来像制图稿，已废弃。 */
+  --cover-art: url("../img/cover-baimiao.svg");
+  --cover-art-opacity: 0.52;
+  --cover-fade: var(--card-bg);
 
   /* ---------- 3. component ------------------------------------------ */
 

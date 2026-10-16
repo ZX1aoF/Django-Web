@@ -1209,61 +1209,62 @@ input[type="radio"] {
   min-block-size: 100dvh;
 }
 
-.auth__ink {
+/* 封面：浅色纸面 + 一幅竹。三种技法由 .cover--* 切换（同一构图，换渲染方式）。
+   上一版是近黑面板 + 稿纸格，读起来像制图稿，这里整个换掉。 */
+.auth__cover {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
-  padding: var(--space-6) var(--gutter) var(--space-7);
-  color: var(--panel-ink-text);
-  background-color: var(--panel-ink);
-  /* 暗面靠光做层次：左上角透进来的朱砂暖光 + 纸面那一侧的反光 + 底部压深。
-     不用网格线 —— 规则格子会把封面读成制图稿。 */
-  background-image:
-    radial-gradient(78% 62% at 0% 0%, var(--panel-ink-glow) 0%, transparent 60%),
-    radial-gradient(64% 92% at 100% 44%, var(--panel-ink-light) 0%, transparent 58%),
-    linear-gradient(to bottom, transparent 0%, var(--panel-ink-deep) 100%);
+  padding: var(--space-7) var(--gutter);
+  color: var(--text);
+  background-color: var(--card-bg);
   border-block-end: var(--rule-thick) solid var(--accent);
 }
 
-/* 封面水印：把签名元素「印章」放大到封面尺度，压在右下角并被裁掉一角。
-   窄屏空间不够会挤到正文，所以在宽屏才出现。 */
-.auth__seal {
+/* 画心：靠右安放，再用一道纸色渐隐把左边让出来给文字。
+   渐隐是不透明的纸色，压在画心上 —— 所以文字区永远干净。
+   窄屏的封面是一条横幅，画心按高度放大后只露出中段，比整幅缩进去更好看。 */
+.auth__cover::before {
+  content: "";
   position: absolute;
-  z-index: 0;
-  inset-block-end: calc(var(--space-8) * -1);
-  inset-inline-end: calc(var(--space-6) * -1);
-  display: none;
-  place-items: center;
-  inline-size: 12rem;
-  block-size: 12rem;
-  color: var(--panel-ink-mark);
-  border: var(--rule-thick) solid currentColor;
-  border-radius: var(--radius-sm);
-  transform: rotate(-7deg);
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(100deg, var(--cover-fade) 0%, var(--cover-fade) 34%, transparent 78%),
+    var(--cover-art);
+  background-repeat: no-repeat;
+  background-size: 100% 100%, auto 235%;
+  background-position: 0 0, 100% 46%;
+  opacity: var(--cover-art-opacity);
 }
 
-.auth__seal-text {
-  writing-mode: vertical-rl;
-  font-family: var(--font-kai);
-  font-size: var(--text-xl);
-  line-height: 1.2;
-  letter-spacing: var(--tracking-wide);
+/* 素描是浅色铅笔，要比白描提得更高才看得见；水墨本身墨重，压得最低 */
+.cover--baimiao {
+  --cover-art: url("../img/cover-baimiao.svg");
+  --cover-art-opacity: 0.52;
 }
 
-/* 水印在水印层，正文在它上面 */
-.auth__ink > :not(.auth__seal) {
+.cover--sketch {
+  --cover-art: url("../img/cover-sketch.svg");
+  --cover-art-opacity: 0.8;
+}
+
+.cover--wash {
+  --cover-art: url("../img/cover-wash.svg");
+  --cover-art-opacity: 0.48;
+}
+
+/* 封面文字压在画心之上：画心在 ::before 的 -1 层 */
+.auth__cover > * {
   position: relative;
   z-index: 1;
-}
-
-.auth__ink a {
-  color: var(--panel-ink-text);
 }
 
 .auth__kicker {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-wider);
-  color: var(--panel-ink-muted);
+  color: var(--text-faint);
 }
 
 .auth__headline {
@@ -1275,7 +1276,7 @@ input[type="radio"] {
   letter-spacing: var(--tracking-wide);
 }
 
-/* 朱砂短尺：墨面上唯一的暖色，把标题与要点分开 */
+/* 朱砂短尺：把标题与要点分开 */
 .auth__rule {
   inline-size: var(--space-8);
   block-size: var(--rule-thick);
@@ -1286,9 +1287,10 @@ input[type="radio"] {
 .auth__points {
   display: grid;
   gap: var(--space-3);
+  max-inline-size: var(--measure);
   font-size: var(--text-base);
   line-height: var(--leading-normal);
-  color: var(--panel-ink-muted);
+  color: var(--text-muted);
 }
 
 .auth__points li {
@@ -1372,18 +1374,18 @@ input[type="radio"] {
   }
 
   .wrap > *,
-  .auth__ink > *,
+  .auth__cover > *,
   .auth__card {
     animation: rise var(--dur-reveal) var(--ease-out) both;
   }
 
   .wrap > *:nth-child(2),
-  .auth__ink > *:nth-child(2) {
+  .auth__cover > *:nth-child(2) {
     animation-delay: 70ms;
   }
 
   .wrap > *:nth-child(3),
-  .auth__ink > *:nth-child(3) {
+  .auth__cover > *:nth-child(3) {
     animation-delay: 140ms;
   }
 
@@ -1484,10 +1486,11 @@ input[type="radio"] {
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .auth__ink {
+  .auth__cover {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    /* 文字靠上、画心留在下半幅 —— 书封就是这么分的 */
+    justify-content: flex-start;
     padding: var(--space-8) var(--space-7);
     margin-inline-end: -3rem;
     clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
@@ -1495,9 +1498,15 @@ input[type="radio"] {
     border-block-end: 0;
   }
 
-  .auth__seal {
-    display: grid;
+  /* 宽屏的封面是竖长条：文字在上、画心在下，渐隐改成从上往下 */
+  .auth__cover::before {
+    background-image:
+      linear-gradient(174deg, var(--cover-fade) 0%, var(--cover-fade) 20%, transparent 58%),
+      var(--cover-art);
+    background-size: 100% 100%, auto 108%;
+    background-position: 0 0, 52% 100%;
   }
+
 
   .auth__paper {
     padding-inline-start: calc(var(--gutter) + 3rem);
@@ -1755,7 +1764,7 @@ input[type="radio"] {
   .avatar,
   .mast__logout,
   .error-summary,
-  .auth__ink {
+  .auth__cover {
     display: none !important;
   }
 

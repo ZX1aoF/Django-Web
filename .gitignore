@@ -46,3 +46,6 @@ db.sqlite3-journal
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# 封面插画的预览 / 模拟成稿（核对用，不进版本库）
+static/img/_*
