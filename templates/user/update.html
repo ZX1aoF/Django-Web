@@ -13,9 +13,12 @@
 {% block panel %}
 <div class="card card--pad-lg">
     <h2 class="h-card">{% if kind == "student" %}学生资料{% else %}管理员资料{% endif %}</h2>
-    <p class="lead mt-3">账号：<strong>{{ info.name }}</strong></p>
+    <p class="lead mt-3">
+        账号：<strong>{{ object.get_id }}</strong>
+        <span class="pill pill--plain">不可修改</span>
+    </p>
 
-    <form method="post" class="form mt-5">
+    <form method="post" class="form mt-4">
         {% csrf_token %}
         {{ form.as_p }}
         <div class="form-actions">

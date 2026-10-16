@@ -7,12 +7,12 @@
     <link href="{% static 'css/tokens.css' %}" rel="stylesheet">
     <link href="{% static 'css/app.css' %}" rel="stylesheet">
 </head>
-<body>
-<a class="sr-only" href="#main">跳到主要内容</a>
+<body class="shell">
+<a class="skip" href="#main">跳到主要内容</a>
 
 <div class="auth">
-    <section class="auth__brand">
-        <p class="eyebrow">语文素材管理系统</p>
+    <section class="auth__ink">
+        <p class="auth__kicker">语文素材管理系统</p>
         <h1 class="auth__headline">{% block headline %}把语文素材收在一处{% endblock %}</h1>
         <div class="auth__rule" aria-hidden="true"></div>
         <ul class="auth__points">
@@ -24,10 +24,11 @@
         </ul>
     </section>
 
-    <main class="auth__panel" id="main">
+    <main class="auth__paper" id="main">
         <div class="auth__card">
             {% block panel %}{% endblock %}
         </div>
+        <p class="auth__foot">{% block foot %}账号为 10 位：年级 4 位 + 编号 6 位。{% endblock %}</p>
     </main>
 </div>
 </body>

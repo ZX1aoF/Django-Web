@@ -15,7 +15,7 @@
     <h2 class="h-card">{% if kind == "student" %}注册学生{% else %}注册管理员{% endif %}</h2>
     <p class="lead mt-3">带 <span aria-hidden="true">*</span> 的是必填项，提交后会自动分配编号。</p>
 
-    <form method="post" class="form mt-5">
+    <form method="post" class="form mt-4">
         {% csrf_token %}
         {{ form.as_p }}
         <div class="form-actions">

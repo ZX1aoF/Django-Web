@@ -21,9 +21,12 @@
     </div>
     {% endif %}
 
-    <h2 class="h-card">{% if kind == "student" %}学生登录{% else %}管理员登录{% endif %}</h2>
+    <h2 class="h-card {% if from_url == 'register' %}mt-4{% endif %}">
+        {% if kind == "student" %}学生登录{% else %}管理员登录{% endif %}
+    </h2>
+    <p class="lead mt-3">请输入 10 位账号与密码。</p>
 
-    <form method="post" class="form">
+    <form method="post" class="form mt-4">
         {% csrf_token %}
         {{ form.as_p }}
         <div class="form-actions">

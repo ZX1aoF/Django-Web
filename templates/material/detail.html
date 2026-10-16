@@ -17,56 +17,69 @@
 {% endblock %}
 
 {% block content %}
-<article class="card card--pad-lg">
-    <div class="meta-row">
-        <div class="meta-item">
-            <span class="eyebrow">状态</span>
-            <span class="pill pill--{{ material.status }}">
+<div class="col">
+    <article class="card card--pad-lg">
+        <div class="card__head">
+            <span class="seal-md seal-md--{{ material.status }}">
                 <span class="pill__dot" aria-hidden="true"></span>{{ material.get_status_display }}
             </span>
+            <span class="eyebrow eyebrow--flat">{{ material.category.name }}</span>
         </div>
-        <div class="meta-item">
-            <span class="eyebrow">分类</span>
-            <span>{{ material.category.name }}</span>
+
+        {% if material.status == "rejected" %}
+        <div class="note note--rejected mt-3">
+            <span class="note__title">审核未通过</span>
+            <span class="note__body">
+                {{ material.review_comment|default:"管理员未填写原因" }}
+                {% if can_manage %}修改并保存后，稿件会重新回到「待审核」。{% endif %}
+            </span>
         </div>
-        {% if material.source %}
-        <div class="meta-item">
-            <span class="eyebrow">出处 / 作者</span>
-            <span>{{ material.source }}</span>
+        {% elif material.status == "pending" %}
+        <div class="note note--pending mt-3">
+            <span class="note__title">等待审核</span>
+            <span class="note__body">这条素材正在等待管理员审核，通过之后其他同学才能看到。</span>
         </div>
         {% endif %}
+
+        <div class="prose prose--article mt-5">{{ material.body|linebreaks }}</div>
+
+        {% if material.attachment %}
+        <p class="attachment">
+            <span class="eyebrow eyebrow--flat">附件</span>
+            <a href="{{ material.attachment.url }}" target="_blank" rel="noopener">{{ material.attachment.name }}</a>
+        </p>
+        {% endif %}
+    </article>
+</div>
+
+<aside class="rail" aria-label="素材信息">
+    <div class="rail__head">
+        <p class="rail__title">素材信息</p>
+    </div>
+    <div class="meta-row">
         <div class="meta-item">
-            <span class="eyebrow">提交人</span>
+            <span class="eyebrow eyebrow--flat">出处 / 作者</span>
+            <span>{{ material.source|default:"未填写" }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="eyebrow eyebrow--flat">提交人</span>
             <span>{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
         </div>
         <div class="meta-item">
-            <span class="eyebrow">更新于</span>
-            <span>{{ material.updated_at|date:"Y-m-d H:i" }}</span>
+            <span class="eyebrow eyebrow--flat">更新于</span>
+            <span class="cell-num">{{ material.updated_at|date:"Y-m-d H:i" }}</span>
         </div>
+        {% if material.reviewed_at %}
+        <div class="meta-item">
+            <span class="eyebrow eyebrow--flat">审核于</span>
+            <span class="cell-num">{{ material.reviewed_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        {% endif %}
     </div>
 
-    {% if material.status == "rejected" %}
-    <div class="note note--rejected">
-        <span class="note__title">审核未通过</span>
-        <span class="note__body">
-            {{ material.review_comment|default:"管理员未填写原因" }}
-            {% if can_manage %}修改并保存后，稿件会重新回到「待审核」。{% endif %}
-        </span>
+    <div class="note note--info">
+        <span class="note__title">关于状态</span>
+        <span class="note__body">管理员录入的素材直接进入素材库；学生投稿先进入「待审核」，由管理员批红后才对所有人可见。</span>
     </div>
-    {% elif material.status == "pending" %}
-    <div class="note note--pending">
-        <span class="note__title">等待审核</span>
-        <span class="note__body">这条素材正在等待管理员审核，通过之后其他同学才能看到。</span>
-    </div>
-    {% endif %}
-
-    <div class="prose">{{ material.body|linebreaks }}</div>
-
-    {% if material.attachment %}
-    <p class="attachment">
-        <span class="eyebrow">附件</span>
-        <a href="{{ material.attachment.url }}" target="_blank" rel="noopener">{{ material.attachment.name }}</a>
-    </p>
-    {% endif %}
-</article>
+</aside>
 {% endblock %}

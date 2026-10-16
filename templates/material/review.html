@@ -14,57 +14,66 @@
 {% endblock %}
 
 {% block content %}
-<div class="card card--pad-lg">
-    <div class="meta-row">
-        <div class="meta-item">
-            <span class="eyebrow">标题</span>
-            <span>{{ material.title }}</span>
-        </div>
-        <div class="meta-item">
-            <span class="eyebrow">当前状态</span>
-            <span class="pill pill--{{ material.status }}">
+<div class="col">
+    <article class="card card--pad-lg">
+        <div class="card__head">
+            <h2 class="h-card">{{ material.title }}</h2>
+            <span class="seal-md seal-md--{{ material.status }}">
                 <span class="pill__dot" aria-hidden="true"></span>{{ material.get_status_display }}
             </span>
         </div>
+
+        <div class="prose prose--article">{{ material.body|truncatechars:300|linebreaks }}</div>
+
+        <p class="mt-5">
+            <a class="btn btn--link" href="{% url 'material_detail' info.kind material.pk %}"
+               target="_blank" rel="noopener">在新标签页查看全文</a>
+        </p>
+
+        {% if material.reviewed_at %}
+        <div class="note note--info mt-5">
+            <span class="note__title">上一次审核：{{ material.reviewed_at|date:"Y-m-d H:i" }}</span>
+            {% if material.review_comment %}
+            <span class="note__body">当时的意见：{{ material.review_comment }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <form method="post" class="form mt-6">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div class="form-actions">
+                <button type="submit" class="btn btn--primary">提交审核结果</button>
+                <a class="btn btn--link" href="{% url 'material' info.kind %}">返回素材库</a>
+            </div>
+        </form>
+    </article>
+</div>
+
+<aside class="rail" aria-label="审核信息">
+    <div class="rail__head">
+        <p class="rail__title">审核信息</p>
+    </div>
+    <div class="meta-row">
         <div class="meta-item">
-            <span class="eyebrow">分类</span>
+            <span class="eyebrow eyebrow--flat">分类</span>
             <span>{{ material.category.name }}</span>
         </div>
         <div class="meta-item">
-            <span class="eyebrow">提交人</span>
+            <span class="eyebrow eyebrow--flat">提交人</span>
             <span>{{ material.author_name }}{% if material.submitted_by %}（学生投稿）{% endif %}</span>
         </div>
         {% if material.source %}
         <div class="meta-item">
-            <span class="eyebrow">出处 / 作者</span>
+            <span class="eyebrow eyebrow--flat">出处 / 作者</span>
             <span>{{ material.source }}</span>
         </div>
         {% endif %}
     </div>
 
-    <div class="prose">{{ material.body|truncatechars:300|linebreaks }}</div>
-
-    <p class="mt-4">
-        <a class="btn btn--link" href="{% url 'material_detail' info.kind material.pk %}"
-           target="_blank" rel="noopener">在新标签页查看全文</a>
-    </p>
-
-    {% if material.reviewed_at %}
-    <div class="note note--info mt-5">
-        <span class="note__title">上一次审核：{{ material.reviewed_at|date:"Y-m-d H:i" }}</span>
-        {% if material.review_comment %}
-        <span class="note__body">当时的意见：{{ material.review_comment }}</span>
-        {% endif %}
+    <div class="note">
+        <span class="note__title">怎么批</span>
+        <span class="note__body">驳回必须写清楚原因，投稿人会在详情页看到这条意见，改完重新提交后状态回到「待审核」。通过之后作者就不能再自己修改了。</span>
     </div>
-    {% endif %}
-
-    <form method="post" class="form mt-6">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <div class="form-actions">
-            <button type="submit" class="btn btn--primary">提交审核结果</button>
-            <a class="btn btn--link" href="{% url 'material' info.kind %}">返回素材库</a>
-        </div>
-    </form>
-</div>
+</aside>
 {% endblock %}

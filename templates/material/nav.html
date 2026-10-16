@@ -8,86 +8,91 @@
     <link href="{% static 'css/app.css' %}" rel="stylesheet">
 </head>
 <body class="shell">
-<a class="sr-only" href="#main">跳到主要内容</a>
+<a class="skip" href="#main">跳到主要内容</a>
 
-<div class="app">
-    <aside class="sidebar">
-        <a class="brand" href="{% url 'material' kind=info.kind %}">
-            <span class="brand__mark" aria-hidden="true"></span>
-            <span class="brand__text">
-                <span class="brand__name">语文素材</span>
-                <span class="brand__role">
-                    {% if info.kind == "student" %}学生端{% else %}管理员端{% endif %}
-                </span>
+<header class="masthead">
+    <div class="masthead__inner">
+        <a class="brandmark" href="{% url 'material' kind=info.kind %}">
+            <span class="brandmark__seal" aria-hidden="true">语</span>
+            <span class="brandmark__text">
+                <span class="brandmark__name">语文素材管理</span>
+                <span class="brandmark__sub">LITERARY MATERIALS</span>
             </span>
         </a>
 
-        <nav class="nav" aria-label="主导航">
-            <p class="nav__label">导航</p>
-            <ul class="nav__list">
+        <nav class="mast__nav" aria-label="主导航">
+            <ul class="mast__list">
                 <li>
-                    <a class="nav__item" href="{% url 'material' kind=info.kind %}"
-                       {% if nav == "library" %}aria-current="page"{% endif %}>素材库</a>
+                    <a class="mast__link" href="{% url 'material' kind=info.kind %}"
+                       {% if nav == "library" %}aria-current="page"{% endif %}>
+                        <span class="mast__index">01</span>素材库
+                    </a>
                 </li>
                 {% if is_administrator %}
                 <li>
-                    <a class="nav__item" href="{% url 'material_create' kind=info.kind %}"
-                       {% if nav == "create" %}aria-current="page"{% endif %}>新建素材</a>
+                    <a class="mast__link" href="{% url 'material_create' kind=info.kind %}"
+                       {% if nav == "create" %}aria-current="page"{% endif %}>
+                        <span class="mast__index">02</span>新建素材
+                    </a>
                 </li>
                 <li>
-                    <a class="nav__item" href="{% url 'material' kind=info.kind %}?status=pending"
+                    <a class="mast__link" href="{% url 'material' kind=info.kind %}?status=pending"
                        {% if nav == "pending" %}aria-current="page"{% endif %}>
-                        待审核{% if pending_count %}<span class="nav__count">{{ pending_count }}</span>{% endif %}
+                        <span class="mast__index">03</span>待审核{% if pending_count %}<span class="nav__count">{{ pending_count }}</span>{% endif %}
                     </a>
                 </li>
                 {% else %}
                 <li>
-                    <a class="nav__item" href="{% url 'material_create' kind=info.kind %}"
-                       {% if nav == "create" %}aria-current="page"{% endif %}>我要投稿</a>
+                    <a class="mast__link" href="{% url 'material_create' kind=info.kind %}"
+                       {% if nav == "create" %}aria-current="page"{% endif %}>
+                        <span class="mast__index">02</span>我要投稿
+                    </a>
                 </li>
                 <li>
-                    <a class="nav__item" href="{% url 'material' kind=info.kind %}?mine=1"
-                       {% if nav == "mine" %}aria-current="page"{% endif %}>我的投稿</a>
+                    <a class="mast__link" href="{% url 'material' kind=info.kind %}?mine=1"
+                       {% if nav == "mine" %}aria-current="page"{% endif %}>
+                        <span class="mast__index">03</span>我的投稿
+                    </a>
                 </li>
                 {% endif %}
             </ul>
         </nav>
 
-        <div class="sidebar__foot">
-            <a class="userchip" href="{% url 'update' info.kind %}">
-                <span class="userchip__avatar" aria-hidden="true">{{ info.name.0 }}</span>
-                <span class="userchip__meta">
-                    <span class="userchip__name">{{ info.name }}</span>
-                    <span class="userchip__hint">修改资料</span>
+        <div class="mast__account">
+            <a class="avatar" href="{% url 'update' info.kind %}">
+                <span class="avatar__mark" aria-hidden="true">{{ info.name|slice:":1" }}</span>
+                <span class="avatar__meta">
+                    <span class="avatar__name">{{ info.name }}</span>
+                    <span class="avatar__role">{% if info.kind == "student" %}学生端{% else %}管理员端{% endif %}</span>
                 </span>
             </a>
-            <a class="btn btn--ghost btn--sm" href="{% url 'logout' %}">退出</a>
+            <a class="mast__logout" href="{% url 'logout' %}">退出</a>
         </div>
-    </aside>
+    </div>
+</header>
 
-    <div class="main">
-        <header class="topbar">
-            <div class="topbar__title">
-                <p class="eyebrow">{% block eyebrow %}{% endblock %}</p>
-                <h1 class="h-page">{% block page_title %}{% endblock %}</h1>
-            </div>
-            <div class="topbar__actions">{% block actions %}{% endblock %}</div>
-        </header>
-
-        <main class="content" id="main">
-            <div class="wrap">
-                {% if messages %}
-                <div class="toasts">
-                    {% for message in messages %}
-                    <p class="toast toast--{{ message.tags|default:'info' }}" role="status">{{ message }}</p>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-                {% block content %}{% endblock %}
-            </div>
-        </main>
+<div class="band">
+    <div class="band__inner">
+        <p class="eyebrow">{% block eyebrow %}{% endblock %}</p>
+        <div class="band__row">
+            <h1 class="band__title">{% block page_title %}{% endblock %}</h1>
+            <div class="band__actions">{% block actions %}{% endblock %}</div>
+        </div>
     </div>
 </div>
+
+<main class="content" id="main">
+    <div class="wrap">
+        {% if messages %}
+        <div class="toasts wrap__full">
+            {% for message in messages %}
+            <p class="toast toast--{{ message.tags|default:'info' }}" role="status">{{ message }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+</main>
 </body>
 </html>

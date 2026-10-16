@@ -16,11 +16,40 @@
 {% endblock %}
 
 {% block content %}
-<div class="card card--pad-lg">
+<div class="col">
+    <div class="card card--pad-lg">
+        <div class="card__head">
+            <h2 class="h-card">
+                {% if material %}修改内容{% elif is_administrator %}录入新素材{% else %}提交新投稿{% endif %}
+            </h2>
+            <span class="eyebrow eyebrow--flat">带 * 为必填</span>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="form">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div class="form-actions">
+                <button type="submit" class="btn btn--primary">
+                    {% if is_administrator %}保存{% else %}提交投稿{% endif %}
+                </button>
+                <a class="btn btn--link"
+                   href="{% if material %}{% url 'material_detail' info.kind material.pk %}{% else %}{% url 'material' info.kind %}{% endif %}">
+                    取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<aside class="rail" aria-label="填报说明">
+    <div class="rail__head">
+        <p class="rail__title">填报说明</p>
+    </div>
+
     {% if is_administrator %}
     <div class="note note--info">
         <span class="note__title">管理员权限</span>
-        <span class="note__body">管理员录入的素材默认「已通过」，保存后立即对其他用户可见。</span>
+        <span class="note__body">管理员录入的素材默认「已通过」，保存后立即对其他用户可见，无需再走审核。</span>
     </div>
     {% else %}
     <div class="note note--info">
@@ -32,18 +61,9 @@
     </div>
     {% endif %}
 
-    <form method="post" enctype="multipart/form-data" class="form">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <div class="form-actions">
-            <button type="submit" class="btn btn--primary">
-                {% if is_administrator %}保存{% else %}提交投稿{% endif %}
-            </button>
-            <a class="btn btn--link"
-               href="{% if material %}{% url 'material_detail' info.kind material.pk %}{% else %}{% url 'material' info.kind %}{% endif %}">
-                取消
-            </a>
-        </div>
-    </form>
-</div>
+    <div class="note">
+        <span class="note__title">附件规则</span>
+        <span class="note__body">支持 pdf / doc / docx / txt / md 与常见图片格式，单个文件不超过 10 MB。正文可以只写一段名句，附件留空也可以。</span>
+    </div>
+</aside>
 {% endblock %}

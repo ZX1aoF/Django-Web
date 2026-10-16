@@ -11,27 +11,39 @@
 {% endblock %}
 
 {% block content %}
-<div class="card card--pad-lg">
-    <div class="note note--rejected">
-        <span class="note__title">删除后无法恢复</span>
-        <span class="note__body">确定要删除素材《{{ material.title }}》吗？该操作不可撤销。</span>
+<div class="col">
+    <div class="card card--pad-lg">
+        <div class="note note--rejected">
+            <span class="note__title">删除后无法恢复</span>
+            <span class="note__body">确定要删除素材《{{ material.title }}》吗？该操作不可撤销。</span>
+        </div>
+
+        <dl class="kv">
+            <dt>分类</dt>
+            <dd>{{ material.category.name }}</dd>
+            <dt>提交人</dt>
+            <dd>{{ material.author_name }}</dd>
+            <dt>状态</dt>
+            <dd>{{ material.get_status_display }}</dd>
+            <dt>更新时间</dt>
+            <dd class="cell-num">{{ material.updated_at|date:"Y-m-d H:i" }}</dd>
+        </dl>
+
+        <form method="post" class="form-actions">
+            {% csrf_token %}
+            <button type="submit" class="btn btn--danger">确认删除</button>
+            <a class="btn btn--link" href="{% url 'material_detail' info.kind material.pk %}">取消</a>
+        </form>
     </div>
-
-    <dl class="kv">
-        <dt>分类</dt>
-        <dd>{{ material.category.name }}</dd>
-        <dt>提交人</dt>
-        <dd>{{ material.author_name }}</dd>
-        <dt>状态</dt>
-        <dd>{{ material.get_status_display }}</dd>
-        <dt>更新时间</dt>
-        <dd>{{ material.updated_at|date:"Y-m-d H:i" }}</dd>
-    </dl>
-
-    <form method="post" class="form-actions">
-        {% csrf_token %}
-        <button type="submit" class="btn btn--danger">确认删除</button>
-        <a class="btn btn--link" href="{% url 'material_detail' info.kind material.pk %}">取消</a>
-    </form>
 </div>
+
+<aside class="rail" aria-label="删除说明">
+    <div class="rail__head">
+        <p class="rail__title">删除说明</p>
+    </div>
+    <div class="note">
+        <span class="note__title">只删这一条</span>
+        <span class="note__body">删除只影响这条素材本身，分类与其他素材不受影响。附件文件会保留在服务器上，不会同时被清理。</span>
+    </div>
+</aside>
 {% endblock %}
