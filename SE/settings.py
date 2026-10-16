@@ -10,22 +10,40 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def env_flag(name, default="0"):
+    """读取布尔型环境变量，1 / true / yes / on 都视为 True。"""
+    return os.environ.get(name, default).strip().lower() in ("1", "true", "yes", "on")
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-sw^zr(ty^n&tbimcwh%r=uu-4xc63br+04p=_vswtdnv*%qaw#'
+# SECURITY WARNING: 生产环境必须通过环境变量 DJANGO_SECRET_KEY 注入随机密钥。
+# 下面这个默认值只供本地开发使用，任何拿到源码的人都知道它，绝不能用在上线环境。
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-dev-only-set-DJANGO_SECRET_KEY-in-production",
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# SECURITY WARNING: 生产环境务必设置 DJANGO_DEBUG=0
+DEBUG = env_flag("DJANGO_DEBUG", default="1")
 
-ALLOWED_HOSTS = []
+# 多个域名用英文逗号分隔，例如 DJANGO_ALLOWED_HOSTS=example.com,www.example.com
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
+if DEBUG and not ALLOWED_HOSTS:
+    # 本地开发时允许 runserver 访问
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "[::1]"]
 
 
 # Application definition
@@ -106,9 +124,10 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+# 界面文案与表单校验提示都是中文，语言与时区跟着保持一致
+LANGUAGE_CODE = 'zh-hans'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Shanghai'
 
 USE_I18N = True
 

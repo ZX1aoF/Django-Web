@@ -1,129 +1,85 @@
-from multiprocessing import context
-from pydoc import cram
-from django.shortcuts import reverse, redirect
-from django.urls import is_valid_path
+from django.shortcuts import redirect, reverse
 from django.views.generic import CreateView, UpdateView
 
-from user.models import Student, Administrator
-from user.forms import StuRegisterForm, AdmRegisterForm, StuUpdateForm
-
-import random
-
+from user.constants import KIND_ADMINISTRATOR, KIND_STUDENT, NUMBER_LENGTH
+from user.forms import AdmRegisterForm, AdmUpdateForm, StuRegisterForm, StuUpdateForm
+from user.models import Administrator, Student
 
 
-class CreateStudentView(CreateView):
+class NextNumberMixin:
+    """为新注册的用户分配该年级下的下一个序号。"""
+
+    def get_next_number(self, grade):
+        last = self.model.objects.filter(grade=grade).order_by("-number").first()
+        if last is None:
+            return str(1).zfill(NUMBER_LENGTH)
+        return str(int(last.number) + 1).zfill(NUMBER_LENGTH)
+
+
+class CreatePersonView(NextNumberMixin, CreateView):
+    """注册视图的公共实现。
+
+    ``kind`` 由子类指定，用于把注册成功后跳转的登录页与表单里的身份对应起来。
+    """
+
+    template_name = "user/register.html"
+    success_url = "login_detail"
+    kind = None
+
+    def form_valid(self, form):
+        # 密码已经在表单的 PasswordHashingMixin 里哈希过，这里只补上序号
+        person = form.save(commit=False)
+        person.number = self.get_next_number(form.cleaned_data["grade"])
+        person.save()
+        self.object = person
+
+        url = "%s?uid=%s&from_url=register" % (
+            reverse(self.get_success_url(), kwargs={"kind": self.kind}),
+            person.get_id(),
+        )
+        return redirect(url)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["kind"] = self.kind
+        return context
+
+
+class CreateStudentView(CreatePersonView):
     model = Student
     form_class = StuRegisterForm
-    template_name = 'user/register.html'
-    success_url = 'login'
+    kind = KIND_STUDENT
 
 
-    def form_valid(self, form):
-        grade = form.cleaned_data["grade"]
-        student_set = Student.objects.filter(grade=grade).order_by("-number")
-        
-        if student_set.count() > 0:
-            last_student = student_set[0]
-            new_number = str(int(last_student.number) + 1)
-            new_number = "0" * (6 - len(new_number)) + new_number
-        else:
-            new_number = "000001"
-        
-        new_student = form.save(commit=False)
-        new_student.number = new_number
-        new_student.save()
-        form.save_m2m()
-
-        self.object = new_student
-
-        uid = grade + new_number
-        from_url = "register"
-        base_url = reverse(self.get_success_url(), kwargs={'kind': 'student'})
-        return redirect(base_url + '?uid=%s&from_url=%s' % (uid, from_url))
-
-    
-    def get_context_data(self, **kwargs):
-        context = super(CreateStudentView, self).get_context_data(**kwargs)
-        context['kind'] = 'student'
-
-        return context
-
-
-
-class CreateAdministratorView(CreateView):
+class CreateAdministratorView(CreatePersonView):
+    # 注意：序号要基于 Administrator 表递增，用错表会跟学生的编号撞号
     model = Administrator
     form_class = AdmRegisterForm
-    template_name = 'user/register.html'
-    success_url = 'login'
+    kind = KIND_ADMINISTRATOR
 
 
-    def post(self, request, *args, **kwargs):
-        form = self.get_form()
+class UpdatePersonView(UpdateView):
+    """修改个人信息的公共实现。"""
 
-        if form.is_valid():
-            return self.form_valid(form)
-        else:
-            return self.form_invalid(form)
+    template_name = "user/update.html"
+    kind = None
 
-
-    def form_valid(self, form):
-        grade = form.cleaned_data["grade"]
-        administrator_set = Student.objects.filter(grade=grade).order_by("-number")
-        
-        if administrator_set.count() > 0:
-            last_administrator = administrator_set[0]
-            new_number = str(int(last_administrator.number) + 1)
-            new_number = "0" * (6 - len(new_number)) + new_number
-        else:
-            new_number = "000001"
-        
-        new_administrator = form.save(commit=False)
-        new_administrator.number = new_number
-        new_administrator.save()
-        form.save_m2m()
-
-        self.object = new_administrator
-
-        uid = grade + new_number
-        from_url = "register"
-        base_url = reverse(self.get_success_url(), kwargs={'kind': 'administrator'})
-        return redirect(base_url + '?uid=%s&from_url=%s' % (uid, from_url))
+    def get_success_url(self):
+        return reverse("material", kwargs={"kind": self.kind})
 
     def get_context_data(self, **kwargs):
-        context = super(CreateAdministratorView, self).get_context_data(**kwargs)
-        context['kind'] = 'administrator'
-
+        context = super().get_context_data(**kwargs)
+        context["kind"] = self.kind
         return context
 
 
-
-class UpdateStudentView(UpdateView):
+class UpdateStudentView(UpdatePersonView):
     model = Student
     form_class = StuUpdateForm
-    template_name = "user/update.html"
-
-    def get_context_data(self, **kwargs):
-        context = super(UpdateStudentView, self).get_context_data(**kwargs)
-        context.update(kwargs)
-        context["kind"] = "student"
-        return context
-
-    def get_success_url(self):
-        return reverse("material", kwargs={"kind": "student"})
+    kind = KIND_STUDENT
 
 
-
-class UpdateAdministratorView(UpdateView):
+class UpdateAdministratorView(UpdatePersonView):
     model = Administrator
-    form_class = AdmRegisterForm
-    template_name = "user/update.html"
-
-    def get_context_data(self, **kwargs):
-        context = super(UpdateAdministratorView, self).get_context_data(**kwargs)
-        context.update(kwargs)
-        context["kind"] = "administrator"
-        return context
-
-    def get_success_url(self):
-        return reverse("material", kwargs={"kind": "administrator"})
-
+    form_class = AdmUpdateForm
+    kind = KIND_ADMINISTRATOR

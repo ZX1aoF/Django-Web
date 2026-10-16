@@ -1,26 +1,18 @@
-"""USER URL Configuration
+"""user 应用的路由。
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+命名约定：``login`` / ``register`` 不带参数时是「选择身份」页，
+带 ``kind`` 参数的分别是 ``login_detail`` / ``register_detail``。
 """
+
 from django.urls import path
+
 from user import views
 
 urlpatterns = [
-    path('login/', views.home, name="login"),
-    path('login/<slug:kind>', views.login, name="login"),
-    path('logout/', views.logout, name="logout"),
-    path('register/', views.register_home, name="register"),
-    path('register/<slug:kind>', views.register, name="register"),
-    path('update/<slug:kind>', views.update, name="update"),
+    path("login/", views.home, name="login"),
+    path("login/<slug:kind>", views.login, name="login_detail"),
+    path("logout/", views.logout, name="logout"),
+    path("register/", views.register_home, name="register"),
+    path("register/<slug:kind>", views.register, name="register_detail"),
+    path("update/<slug:kind>", views.update, name="update"),
 ]

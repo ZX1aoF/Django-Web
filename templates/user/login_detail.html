@@ -1,5 +1,7 @@
 {% extends "user/background.html" %}
-{% block welcome-message %}
+{# 注意：块名必须与父模板 background.html 里的 welcome_message 完全一致（下划线，不是连字符），
+   否则这里的内容不会被渲染出来 #}
+{% block welcome_message %}
     {% if from_url == "register" %}
         <div class="welcome-message">注册成功，你的{% if kind == "student" %}学号{% else %}编号{% endif %}是{{ uid }}</div>
     {% else %}
@@ -18,9 +20,9 @@
             {{form.as_p}}
             <div class="submit-button">
                 <input type="submit" value="登录"/>
-                <a href="{% url 'register' kind %}">注册</a>
+                <a href="{% url 'register_detail' kind %}">注册</a>
             </div>
         </form>
-        <div class="return-button"><a href="{% url 'login' %}">返回上一页</a></div>
+        <div class="return-button"><a href="{% url 'index' %}">返回上一页</a></div>
     </div>
 {% endblock %}

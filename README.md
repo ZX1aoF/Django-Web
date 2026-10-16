@@ -3,8 +3,9 @@
 > 基于 Django 的「学生 / 管理员信息管理系统」——支持身份选择、注册、登录与个人信息维护。
 
 ![Django](https://img.shields.io/badge/Django-4.1.12-092E20?logo=django&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.8%20~%203.11-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.8%20~%203.13-3776AB?logo=python&logoColor=white)
 ![Database](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-39%20passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ## 目录
@@ -14,10 +15,13 @@
 - [技术栈](#技术栈)
 - [目录结构](#目录结构)
 - [快速开始](#快速开始)
+- [环境变量](#环境变量)
+- [运行测试](#运行测试)
 - [账号规则](#账号规则)
 - [页面与路由](#页面与路由)
 - [数据模型](#数据模型)
-- [已知问题与改进方向](#已知问题与改进方向)
+- [修复记录](#修复记录)
+- [后续可做](#后续可做)
 - [安全说明](#安全说明)
 - [License](#license)
 
@@ -27,7 +31,7 @@ Django-Web 是一个课程实践项目（项目配置包名为 `SE`），实现�
 
 账号由「年级（4 位）+ 编号（6 位）」拼接而成。注册时只需填写年级，系统会自动为该年级分配下一个可用编号。
 
-> `material`（资料）应用目前只有一个导航占位页，尚未实现具体业务功能，详见[已知问题与改进方向](#已知问题与改进方向)。
+> `material`（资料）应用目前只有一个导航占位页，尚未实现具体业务功能，详见[后续可做](#后续可做)。
 
 ## 功能特性
 
@@ -35,16 +39,19 @@ Django-Web 是一个课程实践项目（项目配置包名为 `SE`），实现�
 | --- | --- |
 | 身份分流 | 首页选择「学生 / 管理员」，进入对应登录 / 注册流程 |
 | 注册 | 填写姓名、性别、生日、邮箱、个人简介；密码二次确认；学号 / 编号自动分配 |
+| 密码安全 | 密码经 PBKDF2-SHA256 哈希后入库，校验使用恒定时间比较，不再保存明文 |
 | 登录 | 10 位账号 + 密码，登录状态保存在 session 中 |
 | 个人信息维护 | 登录后可修改除年级、编号以外的所有字段 |
-| 退出登录 | 清空 session 并回到首页 |
-| 表单校验 | 账号长度、账号是否不存在、密码是否正确等错误提示 |
+| 退出登录 | 清空并轮换 session，回到首页 |
+| 表单校验 | 账号长度、账号是否不存在、密码是否正确、两次密码是否一致等提示 |
+| 后台管理 | `/admin/` 已挂载，`Student` / `Administrator` 已注册到 Django Admin |
+| 测试 | 39 个用例覆盖注册、登录、改资料、资料页与表单校验 |
 
 ## 技术栈
 
 | 分类 | 选型 |
 | --- | --- |
-| 语言 | Python 3.8 ~ 3.11（推荐 3.10 / 3.11） |
+| 语言 | Python 3.8 ~ 3.13（已在 3.13 上实测通过） |
 | 框架 | Django 4.1.12 |
 | 数据库 | SQLite 3 |
 | 模板 | Django Template Language |
@@ -61,15 +68,21 @@ Django-Web/
 │   ├── settings.py
 │   └── urls.py
 ├── user/                   # 用户应用：注册、登录、信息修改
-│   ├── models.py           # Student / Administrator 模型
-│   ├── forms.py            # 登录、注册、修改表单
+│   ├── models.py           # Person 抽象基类 + Student / Administrator
+│   ├── forms.py            # 登录、注册、修改表单 + 密码哈希 Mixin
 │   ├── cbvs.py             # 基于类的视图（注册、修改）
 │   ├── views.py            # 基于函数的视图（首页、登录、登出、分发）
+│   ├── admin.py            # Django Admin 注册
+│   ├── constants.py        # 账号长度、身份标识等常量
+│   ├── tests.py            # 回归测试
 │   ├── urls.py
-│   ├── constants.py
 │   └── migrations/
+│       ├── 0001_initial.py
+│       ├── 0002_widen_password_field.py
+│       └── 0003_hash_plaintext_passwords.py
 ├── material/               # 资料应用（当前仅有占位导航页）
 │   ├── views.py
+│   ├── tests.py
 │   ├── urls.py
 │   └── migrations/
 ├── templates/
@@ -111,6 +124,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+> 国内网络直连 PyPI 可能很慢，可以换镜像：
+> `pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/`
+
 ### 3. 初始化数据库
 
 ```bash
@@ -118,6 +134,8 @@ python manage.py migrate
 ```
 
 > `db.sqlite3` 已从版本控制中移除（它是本地开发数据库，会随时变化）。首次运行**必须**先执行上面的 `migrate` 命令来生成表结构，否则会报 `no such table`。
+>
+> 迁移 `0003` 会把库里已有的**明文**密码批量转换成哈希，转换后原密码依然可以正常登录。
 
 ### 4. 启动开发服务器
 
@@ -135,7 +153,34 @@ python manage.py runserver
 python manage.py createsuperuser
 ```
 
-然后访问 <http://127.0.0.1:8000/admin/>。注意：目前 `user/admin.py` 与 `material/admin.py` 都没有注册任何模型，因此后台里看不到业务数据。
+然后访问 <http://127.0.0.1:8000/admin/>，可以在后台直接查看 / 编辑学生与管理员记录（密码字段已从后台表单中排除）。
+
+## 环境变量
+
+`SECRET_KEY`、`DEBUG`、`ALLOWED_HOSTS` 都从环境变量读取，未设置时使用仅适合本地开发的默认值。
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `DJANGO_SECRET_KEY` | 内置的开发用占位密钥 | 生产环境**必须**注入随机值 |
+| `DJANGO_DEBUG` | `1` | 设为 `0` 关闭调试模式 |
+| `DJANGO_ALLOWED_HOSTS` | 空 | 逗号分隔，例如 `example.com,www.example.com` |
+
+调试模式下若未指定 `ALLOWED_HOSTS`，会自动允许 `127.0.0.1` / `localhost` / `[::1]`。
+
+```bash
+# 例如在 Linux 上以生产参数启动
+export DJANGO_SECRET_KEY='换成你自己的随机串'
+export DJANGO_DEBUG=0
+export DJANGO_ALLOWED_HOSTS='example.com'
+```
+
+## 运行测试
+
+```bash
+python manage.py test
+```
+
+共 39 个用例，覆盖注册编号分配、密码哈希、两种身份的登录、资料修改、资料页访问控制与表单校验。
 
 ## 账号规则
 
@@ -144,29 +189,38 @@ python manage.py createsuperuser
 - 登录时输入这 10 位账号与密码；系统按前 4 位解析年级、后 6 位解析编号来定位用户
 - 注册时只需填写年级，编号由系统取该年级当前最大编号 + 1 自动分配（该年级无记录时从 `000001` 开始）
 - 同一身份下 `(年级, 编号)` 唯一，数据库层有唯一约束保证
+- 学生与管理员的编号各自独立递增，互不影响
 
-> 提示：`uid` 长度不等于 10 位时，登录表单会直接提示「账号必须为 10 位数」。
+> 提示：账号长度不等于 10 位时，登录表单会直接提示「账号必须为 10 位数」。
 
 ## 页面与路由
 
 | 路由 | 视图 | 说明 |
 | --- | --- | --- |
-| `/` | `user.views.home` | 登录首页，选择「学生 / 管理员」身份 |
-| `/user/login/` | `user.views.home` | 与首页相同（具名路由 `login`） |
-| `/user/login/<kind>` | `user.views.login` | 登录表单页 / 提交处理，`kind` ∈ `student` \| `administrator` |
+| `/` | `user.views.home` | 首页，选择「学生 / 管理员」身份（路由名 `index`） |
+| `/user/login/` | `user.views.home` | 与首页相同（路由名 `login`） |
+| `/user/login/<kind>` | `user.views.login` | 登录表单页 / 提交处理（路由名 `login_detail`） |
 | `/user/logout/` | `user.views.logout` | 退出登录，清空 session |
-| `/user/register/` | `user.views.register_home` | 选择注册身份 |
-| `/user/register/<kind>` | `user.views.register` | 注册表单页 / 提交处理 |
+| `/user/register/` | `user.views.register_home` | 注册身份选择页（路由名 `register`） |
+| `/user/register/<kind>` | `user.views.register` | 注册表单页 / 提交处理（路由名 `register_detail`） |
 | `/user/update/<kind>` | `user.views.update` | 修改个人信息（需已登录） |
 | `/material/<kind>/` | `material.views.home` | 登录后的资料页（当前为占位导航） |
+| `/admin/` | Django Admin | 后台管理 |
 
-其中 `kind` 只接受 `student` 与 `administrator` 两个值，其余值统一返回「Invalid kind」提示。
+`kind` 只接受 `student` 与 `administrator`，其余值统一返回 **400** 与一句「身份参数无效」的提示。
 
 ## 数据模型
 
-两个模型都定义在 `user/models.py` 中，字段结构完全一致，区别仅在语义与唯一约束名。
+`user/models.py` 中定义了一个抽象基类 `Person`，`Student` 与 `Administrator` 继承它，只覆盖 `number` 字段的中文名与各自的唯一约束名。
 
-### Student（学生）
+`Person` 提供的公共能力：
+
+- `get_id()` —— 返回 `年级 + 编号`，即登录用的 10 位账号
+- `set_password(raw)` —— 用 `make_password()` 生成 PBKDF2-SHA256 哈希
+- `check_password(raw)` —— 用 `check_password()` 做恒定时间校验
+- `__str__()` —— 返回 `账号 (姓名)`，便于在 Admin 与 shell 中辨认
+
+### 字段
 
 | 字段 | 类型 | verbose_name | 说明 |
 | --- | --- | --- | --- |
@@ -176,49 +230,63 @@ python manage.py createsuperuser
 | `email` | `EmailField` | 邮箱 | |
 | `info` | `CharField(255)` | 个人简介 | `help_text`：一句话介绍自己 |
 | `grade` | `CharField(4)` | 年级 | |
-| `number` | `CharField(6)` | 学号 | 自动分配 |
-| `password` | `CharField(30)` | 密码 | 明文存储，见[安全说明](#安全说明) |
+| `number` | `CharField(6)` | 学号 / 编号 | 注册时自动分配，不可修改 |
+| `password` | `CharField(128)` | 密码 | 存放 PBKDF2-SHA256 哈希，不是明文 |
 
-唯一约束：`UniqueConstraint(fields=['grade', 'number'], name='student_id')`
+- `Student` 唯一约束：`UniqueConstraint(grade, number)`，名为 `student_id`
+- `Administrator` 唯一约束：`UniqueConstraint(grade, number)`，名为 `administrator_id`
 
-### Administrator（管理员）
+## 修复记录
 
-字段同上，仅两处不同：
+以下缺陷已在 2026-10 的一次集中修复中处理完毕，测试用例覆盖了每一条。
 
-- `number` 的 `verbose_name` 为「编号」
-- 唯一约束名为 `administrator_id`
-
-两个模型都提供了 `get_id()` 方法，返回 `grade + number`，即登录时使用的 10 位账号；`__str__()` 返回 `账号 (姓名)` 形式，便于在 Admin 与 shell 中辨认。
-
-## 已知问题与改进方向
-
-以下问题是在通读源码后整理出来的，**当前代码均未修复**，按优先级排列，可作为后续迭代的 TODO 清单。
-
-| 优先级 | 位置 | 问题 | 建议 |
+| 优先级 | 位置 | 问题 | 处理方式 |
 | --- | --- | --- | --- |
-| 高 | `material/views.py` | `get_user()` 的身份白名单写成了 `["student", "teacher"]`，但项目实际角色是 `administrator`。管理员登录后会被判定为非法身份，不断重定向回登录页，形成死循环 | 改为 `["student", "administrator"]` |
-| 高 | `material/views.py` | `Administrator.objects.filter(department_no=grade)` 使用了模型中不存在的字段 `department_no`，一旦走到该分支会抛 `FieldError` | 改为 `filter(grade=grade)` |
-| 高 | `user/views.py` + `user/forms.py` | 管理员登录表单的字段名是 `aid`，但 `login()` 视图统一读取 `form.cleaned_data["uid"]`，管理员登录会直接 `KeyError` | 统一字段名为 `uid`，或按 `kind` 分别取值 |
-| 高 | `user/forms.py` | 两个注册表单的 `clean()` 方法被写在了 `class Meta` **内部**（缩进错误），导致「确认密码」校验从未真正执行；此外 `AdmRegisterForm.clean` 内还错误地引用了 `StuRegisterForm` | 把 `clean()` 移到表单类层级，并修正类名引用 |
-| 中 | `user/cbvs.py` | `CreateAdministratorView.form_valid()` 中用 `Student.objects` 来查询最大编号，导致管理员编号与学生编号互相干扰、可能撞号 | 改用 `Administrator.objects` |
-| 中 | 全局 | 密码以明文形式存储与比对，完全没有使用 `django.contrib.auth` | 改用 `create_user()` / `check_password()`，并迁移历史数据 |
-| 中 | `SE/settings.py` | `SECRET_KEY` 硬编码并提交进仓库；`DEBUG = True`；`ALLOWED_HOSTS = []` | 改为从环境变量读取，生产环境关闭 DEBUG 并配置 ALLOWED_HOSTS |
-| 中 | `user/views.py` | 顶部 `from audioop import reverse` —— `audioop` 模块已在 **Python 3.13 中被移除**，会导致项目在 3.13 上直接启动失败（`ModuleNotFoundError`） | 删除该行，改用 `from django.urls import reverse` |
-| 低 | 多处 | 一批无用 import：`multiprocessing.context`、`pydoc.cram`、`django.urls.is_valid_path`、`decimal.MAX_EMAX`、`dataclasses.fields` 等 | 逐一清理，可借助 `ruff` / `flake8` |
-| 低 | `SE/urls.py` + `user/urls.py` | 两处 urlconf 都定义了名为 `login` 的路由，反向解析结果存在歧义 | 重命名其中一处，例如首页改为 `index` |
-| 低 | `material/` | 该应用只有 `nav.html` 一个占位页，没有模型与业务逻辑 | 按需求补全资料管理功能 |
-| 低 | `user/admin.py` | `django.contrib.admin` 已启用，但没有注册任何模型 | 注册 `Student` / `Administrator`，或移除该应用 |
-| 低 | `user/tests.py`、`material/tests.py` | 仍是 Django 默认的空测试模板，项目没有测试覆盖 | 补充模型与视图测试 |
+| 高 | `material/views.py` | 身份白名单写成 `["student", "teacher"]`，管理员登录后被判为非法身份，无限重定向回登录页 | 改用统一的 `KINDS` 常量（`student` / `administrator`） |
+| 高 | `material/views.py` | 查询用了不存在的字段 `department_no`，会抛 `FieldError` | 改为按 `grade` + `number` 查询 |
+| 高 | `user/forms.py` + `user/views.py` | 管理员登录表单字段名为 `aid`，视图却统一读 `cleaned_data["uid"]`，管理员登录直接 `KeyError` | 两个登录表单统一使用 `uid` |
+| 高 | `user/forms.py` | 两个注册表单的 `clean()` 被写在 `class Meta` 内部，确认密码校验从未执行；`AdmRegisterForm.clean` 还错误引用了 `StuRegisterForm` | 校验逻辑上移到 `PersonRegisterForm` 表单类层级 |
+| 高 | `user/cbvs.py` | `CreateAdministratorView` 用 `Student` 表计算下一个编号，管理员编号会与学生撞号 | 编号分配改为基于 `self.model` |
+| 中 | 全局 | 密码以明文存储与比对 | 改为 `make_password` / `check_password`，并提供数据迁移转换历史数据 |
+| 中 | `SE/settings.py` | `SECRET_KEY` 硬编码进仓库、`DEBUG=True` 硬编码 | 三者全部改为从环境变量读取 |
+| 中 | `user/views.py` | `from audioop import reverse` —— `audioop` 已在 Python 3.13 中移除，项目无法在 3.13 上启动 | 删除，改用 `django.urls.reverse` |
+| 中 | `user/forms.py` | `AdmRegisterForm` 未声明 `password` 字段，ModelForm 把它渲染成明文输入框 | 在基类中统一声明为 `PasswordInput` |
+| 中 | `templates/user/login_detail.html` | 块名写成 `welcome-message`，与父模板的 `welcome_message` 不匹配，注册成功提示从未渲染 | 改为 `welcome_message` |
+| 中 | `user/cbvs.py` | 管理员的修改表单沿用了注册表单，年级可改 —— 而年级参与账号拼接，改完账号就变了 | 新增 `AdmUpdateForm`，与 `StuUpdateForm` 一样收起年级 |
+| 低 | 多处 | 无用 import：`multiprocessing.context`、`pydoc.cram`、`is_valid_path`、`decimal.MAX_EMAX`、`dataclasses.fields`、`random` 等 | 全部清理 |
+| 低 | `SE/urls.py` + `user/urls.py` | 两处 urlconf 都定义了名为 `login` 的路由，反向解析靠参数个数区分，含义含糊 | 首页改名 `index`，带身份的路由改名 `login_detail` / `register_detail` |
+| 低 | `SE/urls.py` | `import admin` 却没挂路由，`/admin/` 一直是 404 | 补上 `path("admin/", admin.site.urls)` |
+| 低 | `user/admin.py` | 后台未注册任何模型 | 注册 `Student` / `Administrator`，并从后台表单排除密码字段 |
+| 低 | `material/views.py` | `student_home` 与 `administrator_home` 两份完全重复的代码 | 合并为单个 `home` 视图 |
+| 低 | `user/tests.py`、`material/tests.py` | 仍是 Django 默认空模板，没有测试覆盖 | 补充 39 个回归测试 |
+| 低 | `SE/settings.py` | `LANGUAGE_CODE='en-us'` / `TIME_ZONE='UTC'`，与全中文界面不一致，Django 内置校验提示是英文 | 改为 `zh-hans` / `Asia/Shanghai` |
+| 低 | `templates/user/update.html` | 重复 `{% load static %}` 与重复 `<link>`；标题误写成 “Register” | 清理并改为「修改个人信息」 |
+
+## 后续可做
+
+- **补齐 `material` 功能**：该应用目前只有导航页，没有模型与业务逻辑
+- **密码强度校验**：`settings.py` 里的 `AUTH_PASSWORD_VALIDATORS` 目前没有生效（这两个模型不是 `auth.User`），可在表单里显式调用 `validate_password()`
+- **注册并发**：编号分配是「查最大值 + 1」，并发注册同一届时会撞唯一约束，可改用重试或数据库序列
+- **升级 Django**：4.1 已 EOL，建议升到 4.2 LTS
+- **补 CI**：加上 GitHub Actions 跑 `manage.py test`
 
 ## 安全说明
 
-本项目定位为**教学 / 课程作业**，请勿直接部署到生产环境。目前存在以下安全风险：
+本项目定位为**教学 / 课程作业**，请勿直接部署到生产环境。已修复的部分与仍存在的注意事项：
 
-1. **密码明文存储**：数据库中的 `password` 字段直接保存明文，登录时做字符串比对，任何能读到数据库的人都能拿到所有用户的密码
-2. **密钥泄漏**：`SECRET_KEY` 硬编码在 `settings.py` 中并提交进仓库，任何人都可以为该站点伪造 session
-3. **调试模式**：`DEBUG = True`，出错时会向访问者暴露源码、路径与配置片段
+**已修复**
 
-如需对外发布，请先完成[已知问题](#已知问题与改进方向)中标记为「高」与「中」的改造。
+1. 密码不再以明文入库，改用 Django 的 PBKDF2-SHA256 哈希
+2. `SECRET_KEY` 不再硬编码，改为从环境变量读取
+3. `DEBUG` 可通过环境变量关闭
+4. 退出登录改为 `session.flush()`，同时清空数据并轮换 session key
+
+**仍需注意**
+
+1. 调试模式默认开启，线上务必设置 `DJANGO_DEBUG=0`
+2. 项目没有做 CSRF 之外的访问控制加固，也没有限流，登录接口可被暴力尝试
+3. 密码只做了哈希，没有做强度校验（见[后续可做](#后续可做)）
+4. 注意：早期提交历史里的 `SECRET_KEY` 已经泄漏，如曾有线上部署，请务必更换
 
 ## License
 

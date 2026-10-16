@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <title>
-        Register
+        注册
     </title>
     {% load static %}
     <link href="{% static 'css/register.css' %}" rel="stylesheet">
@@ -17,7 +17,8 @@
             <p><input type="submit" value="注册" class="submit-button"/></p>
         </form>
         <div class="return-button">
-            <a href="{% url 'login' kind %}">返回上一页</a>
+            <a href="{% url 'login_detail' kind %}">返回上一页</a>
         </div>
     </div>
 </body>
+</html>

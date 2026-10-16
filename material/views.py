@@ -1,83 +1,52 @@
-from django.shortcuts import render, reverse, redirect
-from django.http.response import HttpResponse
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
 
-from user.models import Student, Administrator
-from user.constants import INVALID_KIND
+from user.constants import (
+    GRADE_LENGTH,
+    INVALID_KIND,
+    KIND_ADMINISTRATOR,
+    KIND_STUDENT,
+    KINDS,
+    UID_LENGTH,
+)
+from user.models import Administrator, Student
 
-# Create your views here.
+MODELS = {
+    KIND_STUDENT: Student,
+    KIND_ADMINISTRATOR: Administrator,
+}
+
 
 def get_user(request, kind):
-    """
+    """按 session 取出当前登录的用户。
 
-    :param request:
-    :param kind: teacher or student
-    :return: return Teacher instance or Student instance
+    :param kind: ``student`` 或 ``administrator``
+    :return: 对应的 Student / Administrator 实例；未登录或身份不符时返回 None
     """
-    if request.session.get('kind', '') != kind or kind not in ["student", "teacher"]:
+    if kind not in KINDS or request.session.get("kind") != kind:
         return None
 
-    if len(request.session.get('user', '')) != 10:
+    uid = request.session.get("user", "")
+    if len(uid) != UID_LENGTH:
         return None
 
-    uid = request.session.get('user')
-    grade, number = uid[:4], uid[4:]
-    if kind == "student":
-        # 找到对应学生
-        student_set = Student.objects.filter(grade=grade, number=number)
-        if student_set.count() == 0:
-            return None
-        return student_set[0]
-    else:
-        # 找到对应老师
-        administrator_set = Administrator.objects.filter(department_no=grade, number=number)
-    
-        if administrator_set.count() == 0:
-            return None
-        return administrator_set[0]
+    grade = uid[:GRADE_LENGTH]
+    number = uid[GRADE_LENGTH:]
+    return MODELS[kind].objects.filter(grade=grade, number=number).first()
 
 
-# Create your views here.
 def home(request, kind):
-    if kind == "student":
-        return student_home(request)
-    elif kind == "administrator":
-        return administrator_home(request)
-    else:
-        return HttpResponse(INVALID_KIND)
+    """登录后的资料页，未登录则跳回对应身份的登录页。"""
+    if kind not in KINDS:
+        return HttpResponse(INVALID_KIND, status=400)
 
-
-def administrator_home(request):
-    kind = "administrator"
     user = get_user(request, kind)
-
-    if not user:
-        return redirect('login', kind=kind)
+    if user is None:
+        return redirect("login_detail", kind=kind)
 
     info = {
         "name": user.name,
-        "kind": kind
+        "kind": kind,
     }
 
-    context = {
-        "info": info
-    }
-
-    return render(request, 'material/nav.html', context)
-
-def student_home(request):
-    kind = "student"
-    user = get_user(request, kind)
-
-    if not user:
-        return redirect('login', kind = kind)
-
-    info = {
-        "name": user.name,
-        "kind": kind
-    }
-
-    context = {
-        "info": info
-    }
-
-    return render(request, 'material/nav.html', context)
+    return render(request, "material/nav.html", {"info": info})

@@ -1,12 +1,12 @@
 {% extends "user/background.html" %}
 {% block login_container %}
 <div class="login-kind student-login-button">
-    <a href="{% url 'register' 'student'%}">注册学生</a>
+    <a href="{% url 'register_detail' 'student'%}">注册学生</a>
 </div>
 <div class="login-kind administrator-login-button">
-    <a href="{% url 'register' 'administrator'%}">注册管理员</a>
+    <a href="{% url 'register_detail' 'administrator'%}">注册管理员</a>
 </div>
 <div class="return-button-register">
-    <a href="{% url 'login' %}">返回上一页</a>
+    <a href="{% url 'index' %}">返回上一页</a>
 </div>
 {% endblock %}

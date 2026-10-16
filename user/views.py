@@ -1,118 +1,129 @@
-from audioop import reverse
-from multiprocessing import context
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 
-from user.models import Student, Administrator
-from user.constants import INVALID_KIND
-from user.forms import StuLoginForm, AdmLoginForm
-from user.cbvs import CreateStudentView, CreateAdministratorView, UpdateAdministratorView, UpdateStudentView
+from user.cbvs import (
+    CreateAdministratorView,
+    CreateStudentView,
+    UpdateAdministratorView,
+    UpdateStudentView,
+)
+from user.constants import (
+    GRADE_LENGTH,
+    INVALID_KIND,
+    KIND_ADMINISTRATOR,
+    KIND_STUDENT,
+    KINDS,
+    UID_LENGTH,
+)
+from user.forms import AdmLoginForm, StuLoginForm
+from user.models import Administrator, Student
 
-# Create your views here.
+LOGIN_FORMS = {
+    KIND_STUDENT: StuLoginForm,
+    KIND_ADMINISTRATOR: AdmLoginForm,
+}
+
+LOGIN_MODELS = {
+    KIND_STUDENT: Student,
+    KIND_ADMINISTRATOR: Administrator,
+}
+
+REGISTER_VIEWS = {
+    KIND_STUDENT: CreateStudentView,
+    KIND_ADMINISTRATOR: CreateAdministratorView,
+}
+
+UPDATE_VIEWS = {
+    KIND_STUDENT: UpdateStudentView,
+    KIND_ADMINISTRATOR: UpdateAdministratorView,
+}
+
+
+def _bad_kind():
+    """kind 参数不是合法身份时统一返回 400。"""
+    return HttpResponse(INVALID_KIND, status=400)
+
 
 def home(request):
+    """身份选择页。"""
     return render(request, "user/login_home.html")
 
+
 def register_home(request):
+    """注册身份选择页。"""
     return render(request, "user/register_home.html")
 
+
 def login(request, kind):
-    if kind not in ["student", "administrator"]:
-        return HttpResponse(INVALID_KIND)
-    
-    if request.method == 'POST':
-        if kind == 'student':
-            form = StuLoginForm(data=request.POST)
+    """登录：GET 渲染表单，POST 校验账号与密码。"""
+    if kind not in KINDS:
+        return _bad_kind()
+
+    form_class = LOGIN_FORMS[kind]
+    model = LOGIN_MODELS[kind]
+
+    if request.method != "POST":
+        context = {"kind": kind}
+        initial = {}
+
+        uid = request.GET.get("uid")
+        if uid:
+            context["uid"] = uid
+            initial["uid"] = uid
+
+        context["form"] = form_class(initial=initial)
+
+        if request.GET.get("from_url"):
+            context["from_url"] = request.GET.get("from_url")
+
+        return render(request, "user/login_detail.html", context)
+
+    form = form_class(data=request.POST)
+    if form.is_valid():
+        uid = form.cleaned_data["uid"]
+
+        if len(uid) != UID_LENGTH:
+            form.add_error("uid", "账号必须为 %d 位数" % UID_LENGTH)
         else:
-            form = AdmLoginForm(data=request.POST)
+            grade = uid[:GRADE_LENGTH]
+            number = uid[GRADE_LENGTH:]
+            user = model.objects.filter(grade=grade, number=number).first()
 
-        if form.is_valid():
-            uid = form.cleaned_data["uid"]
-
-            if len(uid) != 10:
-                form.add_error("uid", "账号必须为 10 位数")
+            if user is None:
+                form.add_error("uid", "账号不存在")
+            elif not user.check_password(form.cleaned_data["password"]):
+                form.add_error("password", "密码不正确")
             else:
-                grade, number = uid[:4], uid[4:]
-                if kind == "student":
-                    object_set = Student.objects.filter(grade=grade, number=number)
-                else:
-                    object_set = Administrator.objects.filter(grade=grade, number=number)
+                request.session["kind"] = kind
+                request.session["user"] = uid
+                request.session["id"] = user.id
+                request.session["name"] = user.name
 
-                if object_set.count() == 0:
-                    form.add_error("uid", "账号不存在")
-                else:
-                    user = object_set[0]
-                    if form.cleaned_data["password"] != user.password:
-                        form.add_error("uid", "密码不正确")
-                    else:
-                        request.session['kind'] = kind
-                        request.session['user'] = uid
-                        request.session['id'] = user.id
+                return redirect("material", kind=kind)
 
-                        return redirect("material", kind=kind)
-
-            return render(request, 'user/login_detail.html', {'form': form, 'kind': kind})
-    else:
-        context = {'kind': kind}
-        if request.GET.get('uid'):
-            uid = request.GET.get('uid')
-            context['uid'] = uid
-            data = {'uid': uid, 'password': '12345678'}
-
-            if kind == 'student':
-                form = StuLoginForm(data)
-            else:
-                form = AdmLoginForm(data)
-        else:
-            if kind == 'student':
-                form = StuLoginForm()
-            else:
-                form = AdmLoginForm()
-
-        context['form'] = form
-        if request.GET.get('from_url'):
-            context['from_url'] = request.GET.get('from_url')
-    
-        return render(request, 'user/login_detail.html', context)
+    return render(request, "user/login_detail.html", {"form": form, "kind": kind})
 
 
 def logout(request):
-    if request.session.get("kind", ""):
-        del request.session["kind"]
-    if request.session.get("user", ""):
-        del request.session["user"]
-    if request.session.get("id", ""):
-        del request.session["id"]
-    return redirect("login")
+    # flush() 会清空 session 数据并轮换 session key，避免会话固定攻击
+    request.session.flush()
+    return redirect("index")
 
 
 def register(request, kind):
-    func = None
-    if kind == 'student':
-        func = CreateStudentView.as_view()
-    elif kind == 'administrator':
-        func = CreateAdministratorView.as_view()
-    
-    if func:
-        return func(request)
-    else:
-        return HttpResponse(INVALID_KIND)
+    view = REGISTER_VIEWS.get(kind)
+    if view is None:
+        return _bad_kind()
+    return view.as_view()(request)
+
 
 def update(request, kind):
-    func = None
-    if kind == 'student':
-        func = UpdateStudentView.as_view()
-    elif kind == 'administrator':
-        func = UpdateAdministratorView.as_view()
-    else:
-        return HttpResponse(INVALID_KIND)
-    
+    view = UPDATE_VIEWS.get(kind)
+    if view is None:
+        return _bad_kind()
+
     pk = request.session.get("id")
-    if pk:
-        context = {
-            "name": request.session.get("name", ""),
-            "kind": request.session.get("kind", ""),
-        }
-        return func(request, pk=pk, context=context)
-    
-    return redirect("login")
+    if not pk:
+        return redirect("login_detail", kind=kind)
+
+    return view.as_view()(request, pk=pk)
