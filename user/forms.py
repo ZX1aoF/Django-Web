@@ -1,4 +1,6 @@
 from django import forms
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 from user.models import Administrator, Student
 
@@ -59,6 +61,21 @@ class PersonRegisterForm(PasswordHashingMixin, forms.ModelForm):
             self.add_error("confirm_password", "两次输入的密码不一致")
 
         return cleaned_data
+
+    def _post_clean(self):
+        # 密码强度校验放在 _post_clean 而不是 clean_<field>：此时 self.instance
+        # 已经由 cleaned_data 填充完毕，settings 里的
+        # UserAttributeSimilarityValidator 才能拿到本次填写的邮箱参与比对。
+        super()._post_clean()
+
+        password = self.cleaned_data.get("password")
+        if not password:
+            return
+
+        try:
+            validate_password(password, self.instance)
+        except ValidationError as error:
+            self.add_error("password", error)
 
 
 class StuRegisterForm(PersonRegisterForm):

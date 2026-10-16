@@ -82,3 +82,336 @@ body {
     text-decoration: none;
     padding: 0 5px;
 }
+
+/* ---------- 顶部导航菜单 ---------- */
+
+.nav .nav-menu {
+    display: inline-block;
+    vertical-align: top;
+    margin: 8px 5px 0;
+}
+
+.nav .nav-menu a {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 2px 10px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, .16);
+    font-size: 14px;
+}
+
+.nav .nav-menu a:hover {
+    background: rgba(255, 255, 255, .3);
+}
+
+/* ---------- 主体容器 ---------- */
+
+.main-content {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+}
+
+/* ---------- 消息提示 ---------- */
+
+.messages {
+    margin-bottom: 16px;
+}
+
+.message {
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    background: #e8e3f7;
+    border-left: 4px solid #4a2c98;
+    color: #33215f;
+}
+
+.message-success {
+    background: #e4f5e9;
+    border-left-color: #2e7d32;
+    color: #1b4d20;
+}
+
+.message-error {
+    background: #fdeaea;
+    border-left-color: #c62828;
+    color: #8c1c1c;
+}
+
+.message-warning {
+    background: #fff6e0;
+    border-left-color: #ef8f00;
+    color: #7a4a00;
+}
+
+/* ---------- 工具栏 ---------- */
+
+.material-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.material-search {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.material-search input[type="text"] {
+    width: 240px;
+    padding: 6px 10px;
+    border: 1px solid #bbb;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.material-search select {
+    padding: 6px 8px;
+    border: 1px solid #bbb;
+    border-radius: 5px;
+    background: #fff;
+    font-size: 14px;
+}
+
+.material-search input[type="submit"],
+.primary-button {
+    display: inline-block;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 5px;
+    background: #4a2c98;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.6;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.material-search input[type="submit"]:hover,
+.primary-button:hover {
+    background: #3b2279;
+}
+
+.reset-link {
+    font-size: 14px;
+    color: #4a2c98;
+    text-decoration: none;
+}
+
+.reset-link:hover {
+    text-decoration: underline;
+}
+
+/* ---------- 素材列表 ---------- */
+
+.material-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+.material-table th,
+.material-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.material-table th {
+    background: #f4f2fa;
+    color: #33215f;
+    white-space: nowrap;
+}
+
+.material-table tbody tr:hover {
+    background: #faf8fe;
+}
+
+.material-table a {
+    color: #4a2c98;
+    text-decoration: none;
+}
+
+.material-table a:hover {
+    text-decoration: underline;
+}
+
+.material-actions a {
+    margin-right: 8px;
+}
+
+.tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 3px;
+    background: #e8e3f7;
+    color: #4a2c98;
+    font-size: 12px;
+}
+
+.empty-tip {
+    background: #fff;
+    border-radius: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    color: #777;
+    font-size: 15px;
+}
+
+/* ---------- 详情与表单卡片 ---------- */
+
+.material-detail,
+.material-form-container {
+    background: #fff;
+    border-radius: 8px;
+    padding: 24px 28px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+.material-title {
+    margin: 0 0 12px;
+    font-size: 22px;
+    color: #33215f;
+}
+
+.material-meta {
+    color: #777;
+    font-size: 13px;
+    margin-bottom: 18px;
+}
+
+.material-meta span {
+    margin-right: 16px;
+}
+
+.material-body {
+    border-top: 1px solid #eee;
+    padding-top: 18px;
+    font-size: 15px;
+    line-height: 1.9;
+    color: #333;
+    word-break: break-word;
+}
+
+.material-attachment {
+    margin-top: 18px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background: #f4f2fa;
+    font-size: 14px;
+}
+
+.material-attachment a {
+    color: #4a2c98;
+}
+
+.material-detail .material-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+    font-size: 14px;
+}
+
+.material-detail .material-actions a {
+    margin-right: 16px;
+    color: #4a2c98;
+    text-decoration: none;
+}
+
+.material-detail .material-actions a:hover {
+    text-decoration: underline;
+}
+
+/* ---------- 编辑表单 ---------- */
+
+.material-form p {
+    margin: 0 0 14px;
+}
+
+.material-form label {
+    display: inline-block;
+    min-width: 80px;
+    vertical-align: top;
+    color: #33215f;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.material-form input[type="text"],
+.material-form select,
+.material-form textarea {
+    width: 100%;
+    max-width: 640px;
+    padding: 7px 10px;
+    border: 1px solid #bbb;
+    border-radius: 5px;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.material-form .helptext {
+    display: block;
+    margin: 4px 0 0 84px;
+    color: #888;
+    font-size: 12px;
+}
+
+.material-form .errorlist {
+    margin: 4px 0 0 84px;
+    padding: 0;
+    list-style: none;
+    color: #c62828;
+    font-size: 13px;
+}
+
+.form-actions {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+}
+
+.form-actions a {
+    margin-left: 14px;
+    color: #666;
+    font-size: 14px;
+}
+
+.danger-button {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 5px;
+    background: #c62828;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.6;
+    cursor: pointer;
+}
+
+.danger-button:hover {
+    background: #a31f1f;
+}
+
+.confirm-text {
+    margin: 0 0 8px;
+    font-size: 15px;
+    color: #333;
+}
+
+.confirm-text.muted {
+    color: #888;
+    font-size: 13px;
+}
+

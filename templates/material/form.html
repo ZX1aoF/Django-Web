@@ -1,0 +1,18 @@
+{% extends "material/nav.html" %}
+
+{% block title %}{% if material %}编辑素材{% else %}新建素材{% endif %} - 语文素材管理系统{% endblock %}
+
+{% block content %}
+<div class="material-form-container">
+    <h2 class="material-title">{% if material %}编辑素材{% else %}新建素材{% endif %}</h2>
+
+    <form method="post" enctype="multipart/form-data" class="material-form">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="form-actions">
+            <input type="submit" value="保存" class="primary-button">
+            <a href="{% if material %}{% url 'material_detail' info.kind material.pk %}{% else %}{% url 'material' info.kind %}{% endif %}">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

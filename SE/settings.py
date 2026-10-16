@@ -147,3 +147,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+
+
+# 素材附件等用户上传文件
+# 这里写绝对路径（以 / 开头），避免在多级页面下被当成相对地址解析。
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

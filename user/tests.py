@@ -327,3 +327,79 @@ class StaticPageTests(TestCase):
         response = self.client.get("/admin/")
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response["Location"].startswith("/admin/login/"))
+
+
+class PasswordStrengthTests(TestCase):
+    """密码强度校验：settings 里的 AUTH_PASSWORD_VALIDATORS 现在会真正生效。"""
+
+    def test_short_password_is_rejected(self):
+        form = StuRegisterForm(
+            data=student_payload(password="abc", confirm_password="abc")
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("password", form.errors)
+
+    def test_all_numeric_password_is_rejected(self):
+        form = StuRegisterForm(
+            data=student_payload(password="12345678", confirm_password="12345678")
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("password", form.errors)
+
+    def test_common_password_is_rejected(self):
+        form = StuRegisterForm(
+            data=student_payload(password="password", confirm_password="password")
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("password", form.errors)
+
+    def test_strong_password_is_accepted(self):
+        form = StuRegisterForm(data=student_payload())
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_administrator_register_form_validates_too(self):
+        form = AdmRegisterForm(
+            data=administrator_payload(password="12345678", confirm_password="12345678")
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("password", form.errors)
+
+    def test_update_form_validates_too(self):
+        student = make_student()
+        form = StuUpdateForm(
+            data={
+                "name": "张三",
+                "password": "123",
+                "confirm_password": "123",
+                "gender": "m",
+                "birthday": "2000-01-01",
+                "email": "zhangsan@example.com",
+                "info": "简介",
+            },
+            instance=student,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("password", form.errors)
+
+    def test_register_view_rejects_weak_password(self):
+        response = self.client.post(
+            reverse("register_detail", args=["student"]),
+            student_payload(password="12345678", confirm_password="12345678"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Student.objects.count(), 0)
+        self.assertIn("password", response.context["form"].errors)
+
+    def test_existing_weak_password_still_logs_in(self):
+        # 强度校验只作用于新设的密码，迁移过来的历史弱密码不应被影响
+        student = make_student()
+        student.set_password("123")
+        student.save()
+
+        response = self.client.post(
+            reverse("login_detail", args=["student"]),
+            {"uid": student.get_id(), "password": "123"},
+        )
+        self.assertRedirects(response, reverse("material", args=["student"]))
+

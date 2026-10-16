@@ -12,3 +12,6 @@ KINDS = (KIND_STUDENT, KIND_ADMINISTRATOR)
 
 # kind 参数非法时返回的提示
 INVALID_KIND = "身份参数无效：kind 只能是 student 或 administrator。"
+
+# 已登录但身份不足以执行该操作时返回的提示
+PERMISSION_DENIED = "当前身份没有权限执行该操作。"

@@ -3,9 +3,7 @@
 {% load static %}
 <head>
     <meta charset="UTF-8">
-    <title>
-        {% block title %}{% endblock %}
-    </title>
+    <title>{% block title %}语文素材管理系统{% endblock %}</title>
     <link href="{% static 'css/nav.css' %}" rel="stylesheet">
 </head>
 <body>
@@ -23,6 +21,13 @@
         </a>
     </div>
 
+    <div class="nav-menu">
+        <a href="{% url 'material' kind=info.kind %}">素材库</a>
+        {% if is_administrator %}
+            <a href="{% url 'material_create' kind=info.kind %}">新建素材</a>
+        {% endif %}
+    </div>
+
     <div class="log-out">
         <a href="{% url 'logout' %}">退出登录</a>
     </div>
@@ -37,6 +42,14 @@
 </div>
 
 <div class="main-content">
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="message message-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
 </div>
 

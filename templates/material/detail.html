@@ -1,0 +1,32 @@
+{% extends "material/nav.html" %}
+
+{% block title %}{{ material.title }} - 语文素材管理系统{% endblock %}
+
+{% block content %}
+<div class="material-detail">
+    <h2 class="material-title">{{ material.title }}</h2>
+
+    <div class="material-meta">
+        <span>分类：{{ material.category.name }}</span>
+        {% if material.source %}<span>出处：{{ material.source }}</span>{% endif %}
+        <span>录入人：{{ material.created_by.name|default:"—" }}</span>
+        <span>更新于 {{ material.updated_at|date:"Y-m-d H:i" }}</span>
+    </div>
+
+    <div class="material-body">{{ material.body|linebreaks }}</div>
+
+    {% if material.attachment %}
+    <div class="material-attachment">
+        附件：<a href="{{ material.attachment.url }}" target="_blank" rel="noopener">{{ material.attachment.name }}</a>
+    </div>
+    {% endif %}
+
+    <div class="material-actions">
+        <a href="{% url 'material' info.kind %}">← 返回素材库</a>
+        {% if is_administrator %}
+        <a href="{% url 'material_edit' info.kind material.pk %}">编辑</a>
+        <a href="{% url 'material_delete' info.kind material.pk %}">删除</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

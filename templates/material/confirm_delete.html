@@ -1,0 +1,22 @@
+{% extends "material/nav.html" %}
+
+{% block title %}删除素材 - 语文素材管理系统{% endblock %}
+
+{% block content %}
+<div class="material-form-container">
+    <h2 class="material-title">确认删除</h2>
+
+    <p class="confirm-text">
+        确定要删除素材《{{ material.title }}》吗？该操作不可撤销。
+    </p>
+    <p class="confirm-text muted">
+        分类：{{ material.category.name }}　更新于 {{ material.updated_at|date:"Y-m-d H:i" }}
+    </p>
+
+    <form method="post" class="form-actions">
+        {% csrf_token %}
+        <input type="submit" value="确认删除" class="danger-button">
+        <a href="{% url 'material_detail' info.kind material.pk %}">取消</a>
+    </form>
+</div>
+{% endblock %}

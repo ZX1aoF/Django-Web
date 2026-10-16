@@ -14,6 +14,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
@@ -26,3 +28,7 @@ urlpatterns = [
     path("user/", include("user.urls")),
     path("material/", include("material.urls")),
 ]
+
+# 开发环境下由 Django 直接托管用户上传的素材附件；
+# 正式部署时应交给 Nginx 之类的静态服务器处理。
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
