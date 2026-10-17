@@ -1241,17 +1241,17 @@ input[type="radio"] {
 /* 素描是浅色铅笔，要比白描提得更高才看得见；水墨本身墨重，压得最低 */
 .cover--baimiao {
   --cover-art: url("../img/cover-baimiao.svg");
-  --cover-art-opacity: 0.52;
+  --cover-art-opacity: 0.68;
 }
 
 .cover--sketch {
   --cover-art: url("../img/cover-sketch.svg");
-  --cover-art-opacity: 0.8;
+  --cover-art-opacity: 0.86;
 }
 
 .cover--wash {
   --cover-art: url("../img/cover-wash.svg");
-  --cover-art-opacity: 0.48;
+  --cover-art-opacity: 0.54;
 }
 
 /* 封面文字压在画心之上：画心在 ::before 的 -1 层 */

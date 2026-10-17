@@ -41,9 +41,9 @@ SANS = r"C:\Windows\Fonts\msyh.ttc"
 
 # 与 app.css 的 .cover--* 一致
 VARIANTS = [
-    ("白描", art_png.render_baimiao, 0.52),
-    ("素描", art_png.render_sketch, 0.80),
-    ("水墨", art_png.render_wash, 0.48),
+    ("白描", art_png.render_baimiao, 0.68),
+    ("素描", art_png.render_sketch, 0.86),
+    ("水墨", art_png.render_wash, 0.54),
 ]
 
 # 与 app.css 的 ::before 一致：(画布宽, 高, 画心高占面板的比例, 水平位置%, 垂直位置%, 渐隐方向)

@@ -7,10 +7,20 @@
 三张图共用同一份几何（竹竿、竹节、枝条、竹叶、石），渲染方式不同 ——
 这样对比的才是技法，不是构图。
 
-几何要点（照着真实竹子画的，不是几何装饰）：
-  - 竹叶长在**枝条**上，沿枝条分布、朝向大致一致；不是从一点呈扇形散开
-  - 竹竿有弯曲，不是垂直线
-  - 竹节是一道横笔，略宽于竿
+几何按传统墨竹的组织方式来，不是把「竹」当几何图形摆 —— 上一版就是栽在这里：
+竹叶沿一根直枝等距排开，排出来像麦穗。以下几条是照画谱与画法资料来的：
+
+  竿   弯节不弯竿，太直则僵；三竿**忌平行**，粗细与墨色要有别。
+       老竿（粗）墨淡、节距短；新竿（细）墨浓、节距长。
+  节   顿笔如铁钉，两端微翘。**各竿的节必须错开** —— 排在一条水平线上就是梯子。
+  枝   自节处生发，但要**互生**（左右交替）、**不节节出枝**；枝细而挺，末梢下垂。
+  叶   不是一片片排的，是按「个 / 介 / 分 / 重人 / 惊鸦」**成组写**的：
+       一组叶起笔聚于一点、叶尖散开（聚如鸡爪，散如凤尾）；
+       组内绝不平行（夹角 ≥ 15°）、绝不等长（必有一片主叶，其余缩短）、
+       绝不均匀（忌「川」字并列）。
+  布叶 下部用「介」压阵（叶密墨重），中部用「分」穿插，上部用「个」收尾
+       （叶疏墨淡）；整丛有统一的下垂之势，不能四面开花。
+  石   坡石，带皴与苔点，压住画面重心。
 
 几何用折线表达（贝塞尔采样），因此 SVG 与 Pillow 预览能画得完全一致。
 
@@ -35,10 +45,12 @@ OUT_DIR = pathlib.Path(__file__).resolve().parent.parent / "static" / "img"
 # 预览产物放在仓库外：它们是核对用的，不该进版本库
 PREVIEW_DIR = OUT_DIR.parents[2] / "design-compare" / "art"
 
-RNG = random.Random(20261016)
+# 固定种子。随机抖动只用来打破整齐，必须可复现 —— 否则改了别处会连带把
+# 每一片叶的抖动都换掉，就分不清画面变化到底是「这次改对了」还是噪声。
+RNG = random.Random(20261017)
 
 
-# ---------------------------------------------------------------- 几何工具
+# ================================================================ 几何工具
 
 
 def qbezier(p0, p1, p2, steps):
@@ -47,9 +59,31 @@ def qbezier(p0, p1, p2, steps):
     for index in range(steps + 1):
         t = index / steps
         u = 1 - t
-        x = u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0]
-        y = u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1]
-        points.append((x, y))
+        points.append(
+            (
+                u * u * p0[0] + 2 * u * t * p1[0] + t * t * p2[0],
+                u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1],
+            )
+        )
+    return points
+
+
+def cbezier(p0, p1, p2, p3, steps):
+    """三次贝塞尔采样。
+
+    枝条要画成「先斜出、末梢下垂」的转折，二次贝塞尔只有一个弓形，转不出这个弯，
+    所以枝条这一层用三次。
+    """
+    points = []
+    for index in range(steps + 1):
+        t = index / steps
+        u = 1 - t
+        points.append(
+            (
+                u**3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t**3 * p3[0],
+                u**3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t**3 * p3[1],
+            )
+        )
     return points
 
 
@@ -81,13 +115,8 @@ def frame(spine, widths):
     return left + right[::-1], spine
 
 
-def tapered(points, start, end, power=1.0, steps=48):
-    """按 t 从 start 线性收到 end（power 控制收束曲线）。
-
-    注意 widths 的长度必须与采样出的中线点数一致 —— 贝塞尔采样 steps 步会得到
-    steps + 1 个点，少一个就会在后面按点取宽度时越界。
-    """
-    spine = qbezier(points[0], points[1], points[2], max(2, steps))
+def taper(spine, start, end, power=1.0):
+    """把一条已采样的中线按 t 从 start 收到 end（power 控制收束曲线）。"""
     total = len(spine)
     widths = [
         start + (end - start) * ((index / (total - 1)) ** power)
@@ -97,45 +126,30 @@ def tapered(points, start, end, power=1.0, steps=48):
     return {"outline": outline, "spine": spine, "widths": widths}
 
 
-def leaf_width_profile(t, width):
-    """叶宽沿叶长的分布。
-
-    真实竹叶不是两头尖的柳叶刀：根部略窄、约两成处最宽，然后一路收到尖。
-    早先用 (1-t)^0.62 导致最宽处落在叶根、收得太快，画出来像箭头。
-
-    clamp 不能省：t 取到 1 时浮点误差会让底数变成 -1e-16，
-    负数开分数次方在 Python 里得到复数，坐标就废了。
-    """
-    if t < 0.18:
-        return width * (0.62 + 0.38 * (t / 0.18) ** 0.7)
-    return width * max(0.0, 1 - (t - 0.18) / 0.82) ** 0.55
-
-
-def make_leaf(base, angle_deg, length, width, bend):
-    """叶片：中线为二次贝塞尔，两侧按叶宽分布收束。"""
-    angle = math.radians(angle_deg)
-    tip = (base[0] + math.cos(angle) * length, base[1] + math.sin(angle) * length)
-    mid = ((base[0] + tip[0]) / 2, (base[1] + tip[1]) / 2)
-    nx, ny = -math.sin(angle), math.cos(angle)
-    control = (mid[0] + nx * bend, mid[1] + ny * bend)
-
-    spine = qbezier(base, control, tip, 18)
-    widths = [
-        leaf_width_profile(index / (len(spine) - 1), width)
-        for index in range(len(spine))
-    ]
-    outline, spine = frame(spine, widths)
-    return {"outline": outline, "spine": spine, "widths": widths}
-
-
-def point_at(shape, t):
-    """取任意形状上 t（0 起 → 1 终）处的点与走向。"""
+def point_dir_at(shape, t):
+    """取形状上 t 处的点、单位切向与宽度。"""
     spine = shape["spine"]
-    index = max(1, min(len(spine) - 2, round(t * (len(spine) - 1))))
+    last = len(spine) - 1
+    index = max(1, min(last - 1, int(round(t * last))))
     x, y = spine[index]
-    dx, dy = x - spine[index - 1][0], y - spine[index - 1][1]
+    dx = spine[index + 1][0] - spine[index - 1][0]
+    dy = spine[index + 1][1] - spine[index - 1][1]
     length = math.hypot(dx, dy) or 1.0
     return x, y, dx / length, dy / length, shape["widths"][index]
+
+
+def droop_from(direction, amount):
+    """把方向朝「正下方」折 amount 度。
+
+    角度体系：0° 指右、90° 指下（SVG 的 y 轴向下）、±180° 指左。
+    「下垂」就是让方向更接近 90°，但**不能一律用加减**：
+    朝右下（0°）要加，朝左下（-154°）反而要减 —— 两边对称地往 90° 靠。
+    所以要取到 90° 的有向角距离，再按符号走。
+    """
+    direction = (direction + 180) % 360 - 180
+    delta = (90 - direction + 180) % 360 - 180
+    step = math.copysign(min(abs(delta), amount), delta)
+    return (direction + step + 180) % 360 - 180
 
 
 def culm_quads(culm, count=16):
@@ -155,23 +169,64 @@ def culm_quads(culm, count=16):
         b = int((index + 1) * last / count)
         if b <= a:
             continue
-        quads.append(
-            (index / (count - 1), [left[a], right[a], right[b], left[b]])
-        )
+        quads.append((index / (count - 1), [left[a], right[a], right[b], left[b]]))
     return quads
 
 
-# ---------------------------------------------------------------- 构图
+def leaf_width_profile(t, width):
+    """叶宽沿叶长的分布。
 
-# 三竿竹：左粗右细，都有弯曲；梢部顶出画面，是折枝式构图
-CULM_SPECS = [
-    ((226, 1340), (168, -90), 32, 17, -128),
-    ((352, 1340), (348, -70), 20, 11, 74),
-    ((444, 1340), (492, 320), 12, 4, 96),
-]
+    竹叶是毛笔一笔点出来的：叶柄细 → 约三成处最宽 → 叶身**缓慢渐细** →
+    叶尖出锋。四段来写，关键是第三段。
+
+    早先写成「中段一直保持满宽，到梢部才收」，叶子出来是**两条几乎平行的边**，
+    看着像羽毛的羽枝 —— 一组叶排在一起就是一把羽扇。真正让人一眼看出「这是
+    竹叶」的，是叶身那道从粗到细的渐收。
+    """
+    if t < 0.12:
+        return width * (0.34 + 0.54 * (t / 0.12) ** 0.7)
+    if t < 0.10:
+        return width * (0.36 + 0.52 * (t / 0.10) ** 0.7)
+    if t < 0.28:
+        return width * (0.88 + 0.12 * (t - 0.10) / 0.18)
+    if t < 0.62:
+        return width * (1.0 - 0.34 * (t - 0.28) / 0.34)
+    # 末段收得比看得出来的还要快：线宽本身就占叶宽的一成半，
+    # 叶尖若还留着两成宽，描上线就是一个圆头 —— 圆头的叶一定不像竹叶。
+    return width * max(0.0, 0.66 * (1 - (t - 0.62) / 0.38) ** 1.35)
+
+
+def make_leaf(base, angle_deg, length, width, bend):
+    """叶片：中线为二次贝塞尔，两侧按叶宽分布收束。
+
+    ``bend`` 沿叶**自身法线**位移，符号全组统一 —— 逆时针看所有叶都朝同一侧弓，
+    这才是「被同一个力塑形」。曾经改成统一朝正下方位移，结果是朝下的叶等于没弯、
+    朝左右的却弯成弓形，反而更乱：法线本身就是「方向转 90°」，它才是侧向。
+    """
+    angle = math.radians(angle_deg)
+    tip = (base[0] + math.cos(angle) * length, base[1] + math.sin(angle) * length)
+    mid = ((base[0] + tip[0]) / 2, (base[1] + tip[1]) / 2)
+    nx, ny = -math.sin(angle), math.cos(angle)
+    control = (mid[0] + nx * bend, mid[1] + ny * bend)
+
+    spine = qbezier(base, control, tip, 18)
+    widths = [
+        leaf_width_profile(index / (len(spine) - 1), width)
+        for index in range(len(spine))
+    ]
+    outline, spine = frame(spine, widths)
+    return {"outline": outline, "spine": spine, "widths": widths}
+
+
+# ================================================================ 竿
+
 
 def culm_curve(start, end, bend):
-    """由起点、终点与弯曲量得出二次贝塞尔的控制点。"""
+    """由起点、终点与弓量得出二次贝塞尔的控制点。
+
+    注意：曲线只走到控制点的一半远，所以实际弓出的弧度约为给定弓量的一半 ——
+    想看到明显弧度就得给足量。
+    """
     return (
         start,
         ((start[0] + end[0]) / 2 + bend, (start[1] + end[1]) / 2),
@@ -179,100 +234,249 @@ def culm_curve(start, end, bend):
     )
 
 
+# 三竿：位置不等距、弓向各异、粗细与墨色分层。
+# 「忌平行」—— 等距平行立刻变栅栏；最粗的是老竿（墨淡），最细的是新竿（墨浓）。
+CULM_SPECS = [
+    # (起点, 终点, 根宽, 梢宽, 弓量, 墨色权重)
+    # 主竿向左凸、次竿向右凸，两竿弓成一个「()」—— 有了相向的弧度才不像两根栏杆
+    ((196, 1374), (252, -54), 31, 14, -128, 0.60),
+    ((334, 1374), (300, -22), 19, 9, 96, 0.80),
+    ((446, 1374), (486, 392), 10.5, 3.6, -58, 1.00),
+]
+
 CULMS = [
-    tapered(culm_curve(start, end, bend), width_base, width_tip, power=0.9)
-    for start, end, width_base, width_tip, bend in CULM_SPECS
+    taper(qbezier(*culm_curve(start, end, bend), 56), root_w, tip_w, power=1.0)
+    for start, end, root_w, tip_w, bend, _ink in CULM_SPECS
 ]
+CULM_INK = [spec[5] for spec in CULM_SPECS]
 
-# 枝条 + 叶丛：(竹竿序号, t, 枝条角度, 枝条长, 叶数, 展开角, 叶长, 叶宽, 弯曲)
-# 叶数刻意压到 3~5、展开角收到 50° 以内：叶片一多、一散，就会互相穿插成一团
-CLUSTER_SPECS = [
-    (0, 0.93, -150, 104, 5, 50, 156, 20, 40),
-    (0, 0.80, -22, 104, 5, 48, 164, 21, 42),
-    (0, 0.63, -142, 92, 4, 46, 148, 19, 36),
-    (0, 0.48, -30, 88, 4, 46, 142, 19, 34),
-    (0, 0.30, -136, 82, 4, 44, 132, 18, 30),
-    (0, 0.16, -24, 76, 4, 44, 124, 17, 28),
-    (1, 0.95, -44, 96, 4, 48, 156, 19, 38),
-    (1, 0.80, -146, 88, 4, 46, 144, 19, 34),
-    (1, 0.62, -34, 84, 4, 46, 138, 18, 32),
-    (1, 0.42, -140, 78, 3, 42, 126, 17, 28),
-    (2, 0.96, -18, 84, 4, 46, 142, 18, 32),
-    (2, 0.70, -152, 78, 4, 44, 130, 17, 30),
-    (2, 0.42, -28, 72, 3, 42, 118, 16, 26),
+# 各竿竹节的相对位置。**每竿都要错开**（这是上一版最显眼的毛病：
+# 三条竿的节排在同一水平线上，一眼就是梯子），且同一竿上节距中间大、两头小。
+NODE_TS = [
+    [0.118, 0.236, 0.362, 0.494, 0.630, 0.760, 0.880, 0.964],
+    [0.158, 0.292, 0.428, 0.560, 0.686, 0.802, 0.910],
+    [0.208, 0.388, 0.564, 0.732, 0.880],
 ]
-
-# 石头：低矮的坡石。顶部不能起尖角，否则会读成屋顶
-ROCK = [
-    (74, 1310), (82, 1226), (110, 1180), (152, 1158), (196, 1166),
-    (236, 1188), (284, 1182), (322, 1218), (334, 1272), (326, 1310),
-]
-ROCK_RIBS = [
-    [(108, 1310), (120, 1250), (146, 1200)],
-    [(180, 1310), (190, 1256), (214, 1214)],
-    [(262, 1310), (270, 1262), (292, 1228)],
-]
-
-
-def make_twig(base, angle_deg, length, bend):
-    """枝条：细，梢部更细。竹叶就挂在枝条上。"""
-    angle = math.radians(angle_deg)
-    tip = (base[0] + math.cos(angle) * length, base[1] + math.sin(angle) * length)
-    mid = ((base[0] + tip[0]) / 2, (base[1] + tip[1]) / 2)
-    nx, ny = -math.sin(angle), math.cos(angle)
-    control = (mid[0] + nx * bend, mid[1] + ny * bend)
-    return tapered((base, control, tip), 3.2, 0.9, power=1.0, steps=14)
-
-
-def build_clusters():
-    bundles = []
-    for culm_index, t, angle, twig_len, count, spread, leaf_len, leaf_w, bend in CLUSTER_SPECS:
-        x, y, _, _, _ = point_at(CULMS[culm_index], t)
-        twig = make_twig((x, y), angle, twig_len, bend)
-
-        leaves = []
-        for order in range(count):
-            # 叶子集中在枝条外段，且**弯曲方向一致**、展开角有限 ——
-            # 这样它们像一把折扇叠着，而不是互相穿插
-            u = 0.42 + 0.58 * (order / max(1, count - 1))
-            bx, by, _, _, _ = point_at(twig, u)
-            offset = -spread / 2 + spread * (order / max(1, count - 1))
-            scale = 1.0 - 0.24 * (order / max(1, count - 1))
-            leaves.append(
-                make_leaf(
-                    (bx, by),
-                    angle + offset,
-                    leaf_len * scale * (0.9 + 0.2 * RNG.random()),
-                    leaf_w * scale * (0.9 + 0.2 * RNG.random()),
-                    36,
-                )
-            )
-        bundles.append((twig, leaves))
-    return bundles
-
-
-CLUSTERS = build_clusters()
-LEAVES = [leaf for _, leaves in CLUSTERS for leaf in leaves]
-TWIGS = [twig for twig, _ in CLUSTERS]
 
 
 def build_nodes():
+    """竹节：一道横过竿身的短弧，两端微翘（「上弯型」节）。"""
     marks = []
-    for culm_index, spec in enumerate(CULM_SPECS):
-        for t in (0.18, 0.34, 0.50, 0.66, 0.80, 0.92):
-            x, y, dx, dy, width = point_at(CULMS[culm_index], t)
+    for index, ts in enumerate(NODE_TS):
+        for t in ts:
+            x, y, dx, dy, width = point_dir_at(CULMS[index], t)
             nx, ny = -dy, dx
-            half = width * 0.66
-            marks.append(
-                [(x + nx * half, y + ny * half), (x - nx * half, y - ny * half)]
-            )
+            half = width * 0.62
+            bow = width * 0.30
+            pts = []
+            for step in range(7):
+                u = step / 6
+                offset = -half + 2 * half * u
+                lift = bow * (1 - (offset / half) ** 2)
+                pts.append((x + nx * offset + dx * lift, y + ny * offset + dy * lift))
+            marks.append(pts)
     return marks
 
 
 NODES = build_nodes()
 
 
-# ---------------------------------------------------------------- SVG 输出
+# ================================================================ 枝与叶
+
+# 竹叶的组合模块。画竹不是一片片画叶，是**一组组写**叶：
+# 每一组就是一个汉字结构，起笔聚于一点（叶根），叶尖向不同方向散开。
+#   (偏角, 长度系数, 是否主叶)
+#
+# 关键在「字」本身的结构，而不是把叶均匀铺开：
+#   「个」是人字头 + 一竖 —— 一撇一捺大幅张开、两片**交叉**，中间一竖朝下。
+#     所以三片叶的开度接近 110°，而不是三片近平行。这是先前最大的误读：
+#     把夹角压到 20° 以内，等于把「个」字拆成了三根平行线，一组叶就成了羽枝。
+#   「介」是「个」加左右两片张开，四片，中二紧凑、左右舒展。
+#   「分」张得最开，常用在丛叶底部或侧边，起展开的作用。
+#   「重人」两个人字层叠，用在最密处叠叶。
+#   「惊鸦」相反 —— 五六片朝**同一个**方向撇出，是唯一"同向"的模块，表现风势。
+# 有了张与不张两种结构，一组一组的叶叠起来才有变化；全都张开就成了棕榈。
+LEAF_MODULES = {
+    "ge": [(-44, 0.58, False), (0, 1.00, True), (40, 0.54, False)],
+    "jie": [(-48, 0.62, False), (-15, 1.00, True), (13, 0.80, False), (45, 0.46, False)],
+    "fen": [(-52, 0.68, False), (-18, 1.00, True), (16, 0.72, False), (50, 0.42, False)],
+    "chongren": [(-42, 0.96, False), (-12, 1.00, True), (11, 0.82, False), (40, 0.40, False)],
+    "jingya": [
+        (-24, 1.00, True),
+        (-12, 0.68, False),
+        (0, 0.50, False),
+        (11, 0.72, False),
+        (23, 0.42, False),
+    ],
+}
+
+# 枝条：(竿号, 出枝 t, 出枝角, 枝长, 末梢垂坠角, 主次权重,
+#        [(挂点 u, 模块, 叶长, 叶宽), ...])
+# 出枝角为负 = 斜向上出；左右交替即「互生」。不是每个节都出枝。
+#
+# 权重用来分主次：一组丛叶里必须有两三处是「主叶」（叶长、墨浓），其余的作陪衬
+# （叶短、墨淡）。13 组叶同样重要、同样清楚、均匀铺满画面 —— 那是图案，不是画。
+# 疏密也照这个排：主竿梢部把两组叶都挂在枝梢（0.99 / 0.82），挤成一处密叶；
+# 中段与下部各只留一组，空出来。
+BRANCHES = [
+    # 主竿（最粗、老竿）：这里的「介」与「分」是全画主叶，叶最长
+    (0, 0.900, -150, 122, 106, 1.00, [(0.99, "ge", 108, 15), (0.80, "jie", 152, 17)]),
+    (0, 0.742, -20, 126, 90, 1.00, [(0.99, "fen", 168, 18)]),
+    (0, 0.560, -142, 100, 98, 0.88, [(0.99, "jie", 142, 17)]),
+    (0, 0.660, -146, 96, 96, 0.84, [(0.98, "ge", 120, 16)]),
+    (0, 0.356, -32, 84, 88, 0.78, [(0.98, "fen", 128, 17)]),
+    # 次竿：出枝角刻意不跟主竿严格反着来 —— 左右严格交替会排成一条「蜈蚣」，
+    # 真实竹子同一侧连着出两枝是常事
+    (1, 0.918, -30, 108, 98, 0.94, [(0.99, "ge", 104, 14), (0.66, "jingya", 136, 16)]),
+    (1, 0.845, -34, 92, 94, 0.82, [(0.98, "jie", 118, 16)]),
+    (1, 0.752, -158, 100, 100, 0.86, [(0.99, "jie", 130, 16)]),
+    (1, 0.572, -36, 88, 92, 0.74, [(0.98, "fen", 120, 16)]),
+    (1, 0.398, -150, 74, 86, 0.66, [(0.98, "ge", 108, 15)]),
+    # 幼竿（最短、最细）：只作点缀，短而淡
+    (2, 0.902, -158, 84, 94, 0.72, [(0.99, "jingya", 112, 14)]),
+    (2, 0.636, -22, 70, 88, 0.60, [(0.98, "ge", 96, 13)]),
+]
+
+
+def make_twig(base, angle_deg, length, droop_deg):
+    """枝条：细而挺，从节处斜出，末梢因自重下垂。"""
+    a1 = math.radians(angle_deg)
+    a2 = math.radians(droop_from(angle_deg, droop_deg))
+    reach = length * 0.58
+    tip = (
+        base[0] + math.cos(a1) * reach + math.cos(a2) * (length - reach),
+        base[1] + math.sin(a1) * reach + math.sin(a2) * (length - reach),
+    )
+    p1 = (base[0] + math.cos(a1) * reach * 0.62, base[1] + math.sin(a1) * reach * 0.62)
+    p2 = (
+        tip[0] - math.cos(a2) * (length - reach) * 0.55,
+        tip[1] - math.sin(a2) * (length - reach) * 0.55,
+    )
+    return taper(cbezier(base, p1, p2, tip, 18), 3.0, 0.6, power=1.3)
+
+
+def build_leaf_group(base, direction_deg, module, length, width, ink, weight=1.0):
+    """按「汉字模块」组织一组叶。
+
+    一组叶共用一个叶根（「起笔聚在一点」），但叶根**不重合**，而且要往两个
+    方向错开：
+
+      沿法线  —— 错开才有「凤眼」（叶与叶交叉处的小菱形空隙）；
+                 完全重合会成「鼓架」（几线交于一点），错开太小又等于没错开，
+                 还是读成从一点放射。
+      沿枝反向 —— 叶是沿枝**依次**生出来的（「叶抱枝」），后生的叶根部要往上
+                 游退一点，层层叠着才有厚度，否则一组叶是薄薄一片。
+
+    另外整组会给一个偏斜：真实的叶组没有一个是正对称的。
+    """
+    specs = LEAF_MODULES[module]
+    angle = math.radians(direction_deg)
+    tangent = (math.cos(angle), math.sin(angle))
+    normal = (-tangent[1], tangent[0])
+    # 两个错开量都给得很小，是有意的：
+    #   「起笔聚在一点」是组叶的根本，叶根一散开，一组叶就变成几片平行排列的
+    #   独立叶（远看是羽扇）。曾经把沿枝退开给到 45px 求「层次」，恰恰毁掉的就是
+    #   这个「聚」。层次靠浓淡和前后覆盖，不靠把根拉开。
+    spread = length * 0.05
+    skew = RNG.uniform(-6.0, 6.0)
+    len_scale = 0.72 + 0.28 * weight
+
+    leaves = []
+    for order, (offset, scale, hero) in enumerate(specs):
+        shift = (order - (len(specs) - 1) / 2) * spread
+        back = order * length * 0.025
+        root = (
+            base[0] + normal[0] * shift - tangent[0] * back,
+            base[1] + normal[1] * shift - tangent[1] * back,
+        )
+        jitter = 0.90 + 0.20 * RNG.random()
+        width_jitter = 0.74 + 0.44 * RNG.random()
+        leaves.append(
+            make_leaf(
+                root,
+                direction_deg + offset + skew,
+                length * scale * jitter * len_scale,
+                width * width_jitter * (1.0 if hero else 0.88),
+                length * (0.17 if hero else 0.11) * scale,
+            )
+        )
+        leaves[-1]["ink"] = ink if hero else ink * 0.68
+        leaves[-1]["hero"] = hero
+        leaves[-1]["module"] = module
+
+    return leaves
+
+
+def build_branches():
+    twigs, leaves, groups = [], [], []
+    for culm_index, t, angle, twig_len, droop, weight, specs in BRANCHES:
+        x, y, _, _, _ = point_dir_at(CULMS[culm_index], t)
+        twig = make_twig((x, y), angle, twig_len, droop)
+        twig["ink"] = CULM_INK[culm_index]
+        twigs.append(twig)
+
+        for anchor, module, leaf_len, leaf_w in specs:
+            gx, gy, gdx, gdy, _ = point_dir_at(twig, anchor)
+            twig_dir = math.degrees(math.atan2(gdy, gdx))
+            # 叶比枝更垂：竹叶从枝上生出后向下垂，所以主方向再往正下方折一点
+            direction = droop_from(twig_dir, 30)
+            group = build_leaf_group(
+                (gx, gy),
+                direction,
+                module,
+                leaf_len,
+                leaf_w,
+                CULM_INK[culm_index],
+                weight,
+            )
+            groups.append(group)
+            leaves += group
+    return twigs, leaves, groups
+
+
+TWIGS, LEAVES, GROUPS = build_branches()
+
+
+# ================================================================ 石
+
+# 坡石：低伏，顶部不能起尖角，否则会读成屋顶
+ROCK = [
+    (70, 1312), (78, 1242), (110, 1198), (154, 1180), (200, 1188),
+    (240, 1208), (284, 1200), (322, 1232), (336, 1278), (328, 1312),
+]
+# 皴：几道顺着石势的短线，表现体积
+ROCK_RIBS = [
+    [(98, 1312), (110, 1258), (138, 1214)],
+    [(172, 1312), (182, 1262), (208, 1222)],
+    [(252, 1312), (260, 1268), (284, 1236)],
+    [(304, 1302), (310, 1268), (322, 1244)],
+]
+# 苔点：石上点苔，聚散不均。半径压到 3~5 —— 大而圆会变成一串葡萄干
+MOSS_SPECS = [
+    (112, 1228, 4.6), (138, 1208, 3.4), (166, 1224, 5.0), (196, 1206, 3.0),
+    (226, 1226, 4.4), (254, 1216, 3.2), (94, 1274, 3.6), (288, 1262, 4.0),
+]
+
+
+def build_moss():
+    """苔点：每点画成略不规则的小团，避免成排等大 —— 成排就变成珠子。"""
+    spots = []
+    for cx, cy, radius in MOSS_SPECS:
+        points = []
+        for step in range(8):
+            angle = step / 8 * math.tau
+            wobble = 0.74 + 0.46 * RNG.random()
+            points.append(
+                (cx + math.cos(angle) * radius * wobble, cy + math.sin(angle) * radius * wobble)
+            )
+        spots.append(points)
+    return spots
+
+
+MOSS = build_moss()
+
+
+# ================================================================ SVG 输出
 
 
 def d_of(points, closed=False):
@@ -307,24 +511,24 @@ def render_baimiao():
 
     for twig in TWIGS:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="2.0" stroke-linecap="round"/>'
+            '<path d="%s" stroke="%s" stroke-width="1.9" stroke-linecap="round"/>'
             % (d_of(twig["spine"]), INK)
         )
 
     for mark in NODES:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="2.5" stroke-linecap="round"/>'
+            '<path d="%s" stroke="%s" stroke-width="2.4" stroke-linecap="round"/>'
             % (d_of(mark), INK)
         )
 
     for leaf in LEAVES:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="2.0" stroke-linejoin="round"/>'
+            '<path d="%s" stroke="%s" stroke-width="1.9" stroke-linejoin="round"/>'
             % (d_of(leaf["outline"], closed=True), INK)
         )
-        # 叶脉：白描里也会勾一根主脉
+        # 白描里也勾一根主脉
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="1.1" stroke-linecap="round" opacity="0.5"/>'
+            '<path d="%s" stroke="%s" stroke-width="1.0" stroke-linecap="round" opacity="0.45"/>'
             % (d_of(leaf["spine"]), INK)
         )
 
@@ -334,8 +538,12 @@ def render_baimiao():
     )
     for rib in ROCK_RIBS:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="1.7" stroke-linecap="round"/>'
+            '<path d="%s" stroke="%s" stroke-width="1.6" stroke-linecap="round"/>'
             % (d_of(rib), INK)
+        )
+    for spot in MOSS:
+        parts.append(
+            '<path d="%s" fill="%s" opacity="0.85"/>' % (d_of(spot, closed=True), INK)
         )
 
     return svg_document("\n".join(parts))
@@ -383,7 +591,7 @@ def render_sketch():
                 '<path d="%s" stroke="%s" stroke-width="1.3" opacity="%.2f" stroke-linejoin="round"/>'
                 % (d_of(shifted, closed=True), GRAPHITE, alpha)
             )
-        for line in hatch_lines(culm, spacing=6.0):
+        for line in hatch_lines(culm, spacing=6.4):
             parts.append(
                 '<path d="%s" stroke="%s" stroke-width="1.05" stroke-linecap="round" opacity="0.42"/>'
                 % (d_of(line), GRAPHITE)
@@ -402,14 +610,16 @@ def render_sketch():
         )
 
     for leaf in LEAVES:
+        # 主叶描得重一些：一组叶里总要有浓淡，否则读成一片
+        weight = 0.78 if leaf["hero"] else 0.5
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="1.2" opacity="0.68" stroke-linejoin="round"/>'
-            % (d_of(leaf["outline"], closed=True), GRAPHITE)
+            '<path d="%s" stroke="%s" stroke-width="1.2" opacity="%.2f" stroke-linejoin="round"/>'
+            % (d_of(leaf["outline"], closed=True), GRAPHITE, weight)
         )
-        for line in hatch_lines(leaf, spacing=3.8):
+        for line in hatch_lines(leaf, spacing=3.6):
             parts.append(
-                '<path d="%s" stroke="%s" stroke-width="1.05" stroke-linecap="round" opacity="0.42"/>'
-                % (d_of(line), GRAPHITE)
+                '<path d="%s" stroke="%s" stroke-width="1.05" stroke-linecap="round" opacity="%.2f"/>'
+                % (d_of(line), GRAPHITE, 0.44 * weight + 0.14)
             )
 
     parts.append(
@@ -421,11 +631,16 @@ def render_sketch():
             '<path d="%s" stroke="%s" stroke-width="1.2" opacity="0.5" stroke-linecap="round"/>'
             % (d_of(rib), GRAPHITE)
         )
-    for index in range(10):
-        y = 1176 + index * 12
+    # 石面的稀疏排线
+    for index in range(9):
+        y = 1180 + index * 13
         parts.append(
-            '<path d="M %d %d L %d %d" stroke="%s" stroke-width="1" opacity="0.34"/>'
-            % (146 + index * 5, y, 292 - index * 3, y + 8, GRAPHITE)
+            '<path d="M %d %d L %d %d" stroke="%s" stroke-width="1" opacity="0.3"/>'
+            % (138 + index * 5, y, 300 - index * 4, y + 9, GRAPHITE)
+        )
+    for spot in MOSS:
+        parts.append(
+            '<path d="%s" fill="%s" opacity="0.5"/>' % (d_of(spot, closed=True), GRAPHITE)
         )
 
     return svg_document("\n".join(parts))
@@ -433,93 +648,91 @@ def render_sketch():
 
 WASH_DEFS = """
 <linearGradient id="inkLeaf" x1="0.1" y1="0" x2="0.5" y2="1">
-  <stop offset="0" stop-color="%(w)s" stop-opacity="0.86"/>
-  <stop offset="0.45" stop-color="%(w)s" stop-opacity="0.56"/>
-  <stop offset="1" stop-color="%(w)s" stop-opacity="0.16"/>
+  <stop offset="0" stop-color="%(w)s" stop-opacity="0.95"/>
+  <stop offset="0.45" stop-color="%(w)s" stop-opacity="0.80"/>
+  <stop offset="1" stop-color="%(w)s" stop-opacity="0.44"/>
 </linearGradient>
 <linearGradient id="inkCulm" x1="0" y1="0" x2="0" y2="1">
-  <stop offset="0" stop-color="%(w)s" stop-opacity="0.26"/>
-  <stop offset="0.5" stop-color="%(w)s" stop-opacity="0.72"/>
+  <stop offset="0" stop-color="%(w)s" stop-opacity="0.22"/>
+  <stop offset="0.45" stop-color="%(w)s" stop-opacity="0.70"/>
   <stop offset="1" stop-color="%(w)s" stop-opacity="0.96"/>
 </linearGradient>
-<radialGradient id="inkMist" cx="0.5" cy="0.5" r="0.5">
-  <stop offset="0" stop-color="%(w)s" stop-opacity="0.34"/>
-  <stop offset="1" stop-color="%(w)s" stop-opacity="0"/>
-</radialGradient>
 <filter id="soft" x="-40%%" y="-40%%" width="180%%" height="180%%">
-  <feGaussianBlur stdDeviation="7"/>
-</filter>
-<filter id="softer" x="-60%%" y="-60%%" width="220%%" height="220%%">
-  <feGaussianBlur stdDeviation="46"/>
+  <feGaussianBlur stdDeviation="6"/>
 </filter>
 """ % {"w": WASH}
 
 
 def render_wash():
-    """水墨：不画轮廓。墨分浓淡 —— 叶根浓、叶尖淡，边缘是化开的。"""
+    """水墨：不画轮廓。墨分浓淡 —— 老竿淡、新竿浓；一组叶里主叶浓、衬叶淡。
+
+    弃用了「角上一团雾」的老做法：那团东西不论调多淡，在封面那个尺寸下都会
+    读成一块灰斑，而写意最讲留白。
+    """
     parts = []
 
-    # 一处极淡的角上气韵，只作衬托。面积必须大到读不出形状，
-    # 否则会被看成两团云 —— 上一版就踩过这个坑
+    # 石头：淡墨铺底 + 柔边收体积；再压一道不模糊的边，否则会糊成一团灰
     parts.append(
-        '<ellipse cx="-40" cy="1330" rx="620" ry="430" fill="url(#inkMist)" opacity="0.55" filter="url(#softer)"/>'
-    )
-
-    # 石头：淡墨铺底 + 柔边收出体积，再压一道稍实的边，免得糊成一团
-    parts.append(
-        '<path d="%s" fill="%s" opacity="0.2" filter="url(#soft)"/>'
+        '<path d="%s" fill="%s" opacity="0.16" filter="url(#soft)"/>'
         % (d_of(ROCK, closed=True), WASH)
     )
     parts.append(
-        '<path d="%s" stroke="%s" stroke-width="2.6" opacity="0.32" stroke-linejoin="round" filter="url(#soft)"/>'
+        '<path d="%s" stroke="%s" stroke-width="1.9" opacity="0.34" stroke-linejoin="round"/>'
         % (d_of(ROCK, closed=True), WASH)
     )
     for rib in ROCK_RIBS:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="3.2" opacity="0.42" stroke-linecap="round" filter="url(#soft)"/>'
+            '<path d="%s" stroke="%s" stroke-width="3" opacity="0.42" stroke-linecap="round" filter="url(#soft)"/>'
             % (d_of(rib), WASH)
         )
 
-    # 竹竿：纵向渐变，根部浓、梢部淡
-    for culm in CULMS:
+    # 竹竿：纵向渐变（根浓梢淡），再乘该竿的墨色权重（老竿淡、新竿浓）
+    for culm, ink in zip(CULMS, CULM_INK):
         parts.append(
-            '<path d="%s" fill="url(#inkCulm)"/>'
-            % d_of(clip_above(culm["outline"]), closed=True)
+            '<path d="%s" fill="url(#inkCulm)" opacity="%.2f"/>'
+            % (d_of(clip_above(culm["outline"]), closed=True), 0.4 + 0.6 * ink)
         )
 
     for twig in TWIGS:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="3.4" opacity="0.6" stroke-linecap="round" filter="url(#soft)"/>'
-            % (d_of(twig["spine"]), WASH)
+            '<path d="%s" stroke="%s" stroke-width="3.2" opacity="%.2f" stroke-linecap="round" filter="url(#soft)"/>'
+            % (d_of(twig["spine"]), WASH, 0.34 + 0.36 * twig["ink"])
         )
 
-    # 竹叶：柔边垫底 + 实墨盖面，边缘自然化开
+    # 竹叶：柔边垫底 + 实墨盖面，浓度按该叶的墨色权重（主叶浓、衬叶淡）
     for leaf in LEAVES:
-        path = d_of(leaf["outline"], closed=True)
         parts.append(
-            '<path d="%s" fill="%s" opacity="0.3" filter="url(#soft)"/>' % (path, WASH)
+            '<path d="%s" fill="%s" opacity="%.2f" filter="url(#soft)"/>'
+            % (d_of(leaf["outline"], closed=True), WASH, 0.22 * leaf["ink"])
         )
     for leaf in LEAVES:
         parts.append(
-            '<path d="%s" fill="url(#inkLeaf)"/>' % d_of(leaf["outline"], closed=True)
+            '<path d="%s" fill="url(#inkLeaf)" opacity="%.2f"/>'
+            % (d_of(leaf["outline"], closed=True), leaf["ink"])
         )
 
     # 竹节：墨未干时点的一笔
     for mark in NODES:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="4" opacity="0.55" stroke-linecap="round" filter="url(#soft)"/>'
+            '<path d="%s" stroke="%s" stroke-width="4" opacity="0.5" stroke-linecap="round" filter="url(#soft)"/>'
             % (d_of(mark), WASH)
         )
     for mark in NODES:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="1.8" opacity="0.7" stroke-linecap="round"/>'
+            '<path d="%s" stroke="%s" stroke-width="1.7" opacity="0.66" stroke-linecap="round"/>'
             % (d_of(mark), WASH)
+        )
+
+    # 苔点：浓墨点醒
+    for spot in MOSS:
+        parts.append(
+            '<path d="%s" fill="%s" opacity="0.78"/>' % (d_of(spot, closed=True), WASH)
         )
 
     return svg_document("\n".join(parts), WASH_DEFS)
 
 
-# ---------------------------------------------------------------- 预览页
+# ================================================================ 预览页
 
 
 def write_previews(directory):
@@ -565,8 +778,8 @@ def main():
         print("  %-22s %6.1f KB" % (name, len(content.encode("utf-8")) / 1024))
 
     print(
-        "  竹竿 %d 根 / 枝条 %d 支 / 竹叶 %d 片 / 竹节 %d 处"
-        % (len(CULMS), len(TWIGS), len(LEAVES), len(NODES))
+        "  竹竿 %d 根 / 竹节 %d 处 / 枝条 %d 支 / 叶组 %d 组 / 竹叶 %d 片 / 苔点 %d 处"
+        % (len(CULMS), len(NODES), len(TWIGS), len(GROUPS), len(LEAVES), len(MOSS))
     )
 
     if options.preview:

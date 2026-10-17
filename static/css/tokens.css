@@ -76,7 +76,7 @@
      由 app.css 里的 .cover--* 覆盖下面两个令牌来切换。
      上一版是近黑面板 + 稿纸格，读起来像制图稿，已废弃。 */
   --cover-art: url("../img/cover-baimiao.svg");
-  --cover-art-opacity: 0.52;
+  --cover-art-opacity: 0.68;
   --cover-fade: var(--card-bg);
 
   /* ---------- 3. component ------------------------------------------ */
