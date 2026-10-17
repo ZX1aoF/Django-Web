@@ -2,7 +2,11 @@
 
     白描  单线勾勒，不皴不染        cover-baimiao.svg
     素描  铅笔排线，明暗靠线条疏密   cover-sketch.svg
-    水墨  墨色晕染，明暗靠墨的浓淡   cover-wash.svg
+    水墨  墨色晕染，明暗靠墨的浓淡   cover-wash.svg   ← 定版，只出这一张
+
+定版选水墨的道理：白描在封面的实际尺寸下线太细（缩到 336px 宽就快看不见），
+素描叠上纸色渐隐后整体发灰；水墨是墨块，缩放后最立得住。
+另外两种的渲染函数都留着，跑 --all 可以重出三张再挑。
 
 三张图共用同一份几何（竹竿、竹节、枝条、竹叶、石），渲染方式不同 ——
 这样对比的才是技法，不是构图。
@@ -25,8 +29,8 @@
 几何用折线表达（贝塞尔采样），因此 SVG 与 Pillow 预览能画得完全一致。
 
 用法：
-    python tools/make_cover_art.py            # 写入 static/img/
-    python tools/make_cover_art.py --preview  # 额外输出并排预览页
+    python tools/make_cover_art.py        # 只输出定版的水墨
+    python tools/make_cover_art.py --all  # 三张都出，并写并排预览页
 """
 
 import argparse
@@ -238,10 +242,12 @@ def culm_curve(start, end, bend):
 # 「忌平行」—— 等距平行立刻变栅栏；最粗的是老竿（墨淡），最细的是新竿（墨浓）。
 CULM_SPECS = [
     # (起点, 终点, 根宽, 梢宽, 弓量, 墨色权重)
+    # 竿必须细。原来根宽 31 的时候，三竿合计占到画面宽度的三成，缩到封面尺寸
+    # 就是并排三根水泥柱；真实墨竹的竿只占几个百分点，叶反而比竿宽。
     # 主竿向左凸、次竿向右凸，两竿弓成一个「()」—— 有了相向的弧度才不像两根栏杆
-    ((196, 1374), (252, -54), 31, 14, -128, 0.60),
-    ((334, 1374), (300, -22), 19, 9, 96, 0.80),
-    ((446, 1374), (486, 392), 10.5, 3.6, -58, 1.00),
+    ((196, 1374), (252, -54), 19, 8.5, -128, 0.60),
+    ((334, 1374), (300, -22), 12, 5.2, 96, 0.80),
+    ((446, 1374), (486, 392), 7, 2.4, -58, 1.00),
 ]
 
 CULMS = [
@@ -297,16 +303,16 @@ NODES = build_nodes()
 #   「惊鸦」相反 —— 五六片朝**同一个**方向撇出，是唯一"同向"的模块，表现风势。
 # 有了张与不张两种结构，一组一组的叶叠起来才有变化；全都张开就成了棕榈。
 LEAF_MODULES = {
-    "ge": [(-44, 0.58, False), (0, 1.00, True), (40, 0.54, False)],
-    "jie": [(-48, 0.62, False), (-15, 1.00, True), (13, 0.80, False), (45, 0.46, False)],
-    "fen": [(-52, 0.68, False), (-18, 1.00, True), (16, 0.72, False), (50, 0.42, False)],
-    "chongren": [(-42, 0.96, False), (-12, 1.00, True), (11, 0.82, False), (40, 0.40, False)],
+    "ge": [(-32, 0.58, False), (0, 1.00, True), (29, 0.54, False)],
+    "jie": [(-33, 0.62, False), (-12, 1.00, True), (9, 0.80, False), (31, 0.46, False)],
+    "fen": [(-38, 0.68, False), (-13, 1.00, True), (12, 0.72, False), (36, 0.42, False)],
+    "chongren": [(-29, 0.96, False), (-9, 1.00, True), (8, 0.82, False), (27, 0.40, False)],
     "jingya": [
-        (-24, 1.00, True),
-        (-12, 0.68, False),
+        (-20, 1.00, True),
+        (-10, 0.68, False),
         (0, 0.50, False),
-        (11, 0.72, False),
-        (23, 0.42, False),
+        (9, 0.72, False),
+        (19, 0.42, False),
     ],
 }
 
@@ -320,21 +326,21 @@ LEAF_MODULES = {
 # 中段与下部各只留一组，空出来。
 BRANCHES = [
     # 主竿（最粗、老竿）：这里的「介」与「分」是全画主叶，叶最长
-    (0, 0.900, -150, 122, 106, 1.00, [(0.99, "ge", 108, 15), (0.80, "jie", 152, 17)]),
-    (0, 0.742, -20, 126, 90, 1.00, [(0.99, "fen", 168, 18)]),
-    (0, 0.560, -142, 100, 98, 0.88, [(0.99, "jie", 142, 17)]),
-    (0, 0.660, -146, 96, 96, 0.84, [(0.98, "ge", 120, 16)]),
-    (0, 0.356, -32, 84, 88, 0.78, [(0.98, "fen", 128, 17)]),
+    (0, 0.900, -150, 122, 106, 1.00, [(0.99, "ge", 108, 17), (0.80, "jie", 152, 19)]),
+    (0, 0.742, -20, 126, 90, 1.00, [(0.99, "fen", 168, 20)]),
+    (0, 0.560, -142, 100, 98, 0.88, [(0.99, "jie", 142, 19)]),
+    (0, 0.660, -146, 96, 96, 0.84, [(0.98, "ge", 120, 18)]),
+    (0, 0.356, -32, 84, 88, 0.78, [(0.98, "fen", 128, 19)]),
     # 次竿：出枝角刻意不跟主竿严格反着来 —— 左右严格交替会排成一条「蜈蚣」，
     # 真实竹子同一侧连着出两枝是常事
-    (1, 0.918, -30, 108, 98, 0.94, [(0.99, "ge", 104, 14), (0.66, "jingya", 136, 16)]),
-    (1, 0.845, -34, 92, 94, 0.82, [(0.98, "jie", 118, 16)]),
-    (1, 0.752, -158, 100, 100, 0.86, [(0.99, "jie", 130, 16)]),
-    (1, 0.572, -36, 88, 92, 0.74, [(0.98, "fen", 120, 16)]),
-    (1, 0.398, -150, 74, 86, 0.66, [(0.98, "ge", 108, 15)]),
+    (1, 0.918, -30, 108, 98, 0.94, [(0.99, "ge", 104, 16), (0.66, "jingya", 136, 18)]),
+    (1, 0.845, -34, 92, 94, 0.82, [(0.98, "jie", 118, 18)]),
+    (1, 0.752, -158, 100, 100, 0.86, [(0.99, "jie", 130, 18)]),
+    (1, 0.572, -36, 88, 92, 0.74, [(0.98, "fen", 120, 18)]),
+    (1, 0.398, -150, 74, 86, 0.66, [(0.98, "ge", 108, 17)]),
     # 幼竿（最短、最细）：只作点缀，短而淡
-    (2, 0.902, -158, 84, 94, 0.72, [(0.99, "jingya", 112, 14)]),
-    (2, 0.636, -22, 70, 88, 0.60, [(0.98, "ge", 96, 13)]),
+    (2, 0.902, -158, 84, 94, 0.72, [(0.99, "jingya", 112, 16)]),
+    (2, 0.636, -22, 70, 88, 0.60, [(0.98, "ge", 96, 15)]),
 ]
 
 
@@ -355,7 +361,9 @@ def make_twig(base, angle_deg, length, droop_deg):
     return taper(cbezier(base, p1, p2, tip, 18), 3.0, 0.6, power=1.3)
 
 
-def build_leaf_group(base, direction_deg, module, length, width, ink, weight=1.0):
+def build_leaf_group(
+    base, direction_deg, module, length, width, ink, weight=1.0, spread_ratio=None
+):
     """按「汉字模块」组织一组叶。
 
     一组叶共用一个叶根（「起笔聚在一点」），但叶根**不重合**，而且要往两个
@@ -377,7 +385,7 @@ def build_leaf_group(base, direction_deg, module, length, width, ink, weight=1.0
     #   「起笔聚在一点」是组叶的根本，叶根一散开，一组叶就变成几片平行排列的
     #   独立叶（远看是羽扇）。曾经把沿枝退开给到 45px 求「层次」，恰恰毁掉的就是
     #   这个「聚」。层次靠浓淡和前后覆盖，不靠把根拉开。
-    spread = length * 0.05
+    spread = length * (0.05 if spread_ratio is None else spread_ratio)
     skew = RNG.uniform(-6.0, 6.0)
     len_scale = 0.72 + 0.28 * weight
 
@@ -397,7 +405,8 @@ def build_leaf_group(base, direction_deg, module, length, width, ink, weight=1.0
                 direction_deg + offset + skew,
                 length * scale * jitter * len_scale,
                 width * width_jitter * (1.0 if hero else 0.88),
-                length * (0.17 if hero else 0.11) * scale,
+                # 叶身要有一点弧。给太小是一片直刀片，给太大就成弓了
+                length * (0.24 if hero else 0.16) * scale,
             )
         )
         leaves[-1]["ink"] = ink if hero else ink * 0.68
@@ -439,22 +448,23 @@ TWIGS, LEAVES, GROUPS = build_branches()
 
 # ================================================================ 石
 
-# 坡石：低伏，顶部不能起尖角，否则会读成屋顶
+# 坡石：低伏，顶部要有起伏与折角。做成平滑的圆弧就成了一个灰面包
 ROCK = [
-    (70, 1312), (78, 1242), (110, 1198), (154, 1180), (200, 1188),
-    (240, 1208), (284, 1200), (322, 1232), (336, 1278), (328, 1312),
+    (62, 1312), (70, 1272), (94, 1238), (126, 1226), (148, 1244),
+    (176, 1222), (202, 1200), (230, 1212), (262, 1238), (296, 1226),
+    (328, 1258), (340, 1300), (334, 1312),
 ]
 # 皴：几道顺着石势的短线，表现体积
 ROCK_RIBS = [
-    [(98, 1312), (110, 1258), (138, 1214)],
-    [(172, 1312), (182, 1262), (208, 1222)],
-    [(252, 1312), (260, 1268), (284, 1236)],
-    [(304, 1302), (310, 1268), (322, 1244)],
+    [(92, 1312), (104, 1268), (130, 1236)],
+    [(168, 1312), (178, 1272), (200, 1238)],
+    [(250, 1312), (258, 1274), (280, 1246)],
+    [(306, 1306), (312, 1276), (326, 1256)],
 ]
-# 苔点：石上点苔，聚散不均。半径压到 3~5 —— 大而圆会变成一串葡萄干
+# 苔点：石上点苔，聚散不均。半径 2~3.4 —— 缩到封面尺寸后，再大就是一把黑芝麻
 MOSS_SPECS = [
-    (112, 1228, 4.6), (138, 1208, 3.4), (166, 1224, 5.0), (196, 1206, 3.0),
-    (226, 1226, 4.4), (254, 1216, 3.2), (94, 1274, 3.6), (288, 1262, 4.0),
+    (108, 1244, 3.2), (134, 1228, 2.4), (160, 1252, 3.0), (190, 1232, 2.2),
+    (218, 1246, 2.8), (248, 1240, 2.2), (88, 1280, 2.6), (288, 1268, 2.6),
 ]
 
 
@@ -648,9 +658,9 @@ def render_sketch():
 
 WASH_DEFS = """
 <linearGradient id="inkLeaf" x1="0.1" y1="0" x2="0.5" y2="1">
-  <stop offset="0" stop-color="%(w)s" stop-opacity="0.95"/>
-  <stop offset="0.45" stop-color="%(w)s" stop-opacity="0.80"/>
-  <stop offset="1" stop-color="%(w)s" stop-opacity="0.44"/>
+  <stop offset="0" stop-color="%(w)s" stop-opacity="0.98"/>
+  <stop offset="0.45" stop-color="%(w)s" stop-opacity="0.88"/>
+  <stop offset="1" stop-color="%(w)s" stop-opacity="0.58"/>
 </linearGradient>
 <linearGradient id="inkCulm" x1="0" y1="0" x2="0" y2="1">
   <stop offset="0" stop-color="%(w)s" stop-opacity="0.22"/>
@@ -673,24 +683,25 @@ def render_wash():
 
     # 石头：淡墨铺底 + 柔边收体积；再压一道不模糊的边，否则会糊成一团灰
     parts.append(
-        '<path d="%s" fill="%s" opacity="0.16" filter="url(#soft)"/>'
+        '<path d="%s" fill="%s" opacity="0.08" filter="url(#soft)"/>'
         % (d_of(ROCK, closed=True), WASH)
     )
     parts.append(
-        '<path d="%s" stroke="%s" stroke-width="1.9" opacity="0.34" stroke-linejoin="round"/>'
+        '<path d="%s" stroke="%s" stroke-width="1.5" opacity="0.20" stroke-linejoin="round"/>'
         % (d_of(ROCK, closed=True), WASH)
     )
     for rib in ROCK_RIBS:
         parts.append(
-            '<path d="%s" stroke="%s" stroke-width="3" opacity="0.42" stroke-linecap="round" filter="url(#soft)"/>'
+            '<path d="%s" stroke="%s" stroke-width="2.6" opacity="0.34" stroke-linecap="round" filter="url(#soft)"/>'
             % (d_of(rib), WASH)
         )
 
-    # 竹竿：纵向渐变（根浓梢淡），再乘该竿的墨色权重（老竿淡、新竿浓）
+    # 竹竿：淡墨。墨竹的浓淡关系是「竿淡叶浓」，早先竿给到 0.4~1.0，
+    # 缩到封面尺寸就跟叶一个分量，整片糊成三根灰柱子。
     for culm, ink in zip(CULMS, CULM_INK):
         parts.append(
             '<path d="%s" fill="url(#inkCulm)" opacity="%.2f"/>'
-            % (d_of(clip_above(culm["outline"]), closed=True), 0.4 + 0.6 * ink)
+            % (d_of(clip_above(culm["outline"]), closed=True), 0.34 + 0.30 * ink)
         )
 
     for twig in TWIGS:
@@ -699,16 +710,17 @@ def render_wash():
             % (d_of(twig["spine"]), WASH, 0.34 + 0.36 * twig["ink"])
         )
 
-    # 竹叶：柔边垫底 + 实墨盖面，浓度按该叶的墨色权重（主叶浓、衬叶淡）
+    # 竹叶：柔边垫底 + 实墨盖面，浓度按该叶的墨色权重（主叶浓、衬叶淡）。
+    # 这里是全画的「浓」：缩到封面尺寸后，叶仍要是明显的墨块，不能只剩一片灰。
     for leaf in LEAVES:
         parts.append(
             '<path d="%s" fill="%s" opacity="%.2f" filter="url(#soft)"/>'
-            % (d_of(leaf["outline"], closed=True), WASH, 0.22 * leaf["ink"])
+            % (d_of(leaf["outline"], closed=True), WASH, 0.24 * leaf["ink"])
         )
     for leaf in LEAVES:
         parts.append(
             '<path d="%s" fill="url(#inkLeaf)" opacity="%.2f"/>'
-            % (d_of(leaf["outline"], closed=True), leaf["ink"])
+            % (d_of(leaf["outline"], closed=True), 0.72 + 0.28 * leaf["ink"])
         )
 
     # 竹节：墨未干时点的一笔
@@ -726,7 +738,7 @@ def render_wash():
     # 苔点：浓墨点醒
     for spot in MOSS:
         parts.append(
-            '<path d="%s" fill="%s" opacity="0.78"/>' % (d_of(spot, closed=True), WASH)
+            '<path d="%s" fill="%s" opacity="0.48"/>' % (d_of(spot, closed=True), WASH)
         )
 
     return svg_document("\n".join(parts), WASH_DEFS)
@@ -761,18 +773,24 @@ def write_previews(directory):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--preview", action="store_true", help="额外输出并排预览页")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="连同白描、素描一起输出并写并排预览页（默认只出定版的水墨）",
+    )
     options = parser.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    outputs = {
-        "cover-baimiao.svg": render_baimiao(),
-        "cover-sketch.svg": render_sketch(),
-        "cover-wash.svg": render_wash(),
+    renderers = {
+        "cover-wash.svg": render_wash,
+        "cover-baimiao.svg": render_baimiao,
+        "cover-sketch.svg": render_sketch,
     }
+    names = list(renderers) if options.all else ["cover-wash.svg"]
 
-    for name, content in outputs.items():
+    for name in names:
+        content = renderers[name]()
         path = OUT_DIR / name
         path.write_text(content, encoding="utf-8")
         print("  %-22s %6.1f KB" % (name, len(content.encode("utf-8")) / 1024))
@@ -782,7 +800,7 @@ def main():
         % (len(CULMS), len(NODES), len(TWIGS), len(GROUPS), len(LEAVES), len(MOSS))
     )
 
-    if options.preview:
+    if options.all:
         write_previews(PREVIEW_DIR)
 
 

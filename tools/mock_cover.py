@@ -39,11 +39,9 @@ SERIF = r"C:\Windows\Fonts\simsun.ttc"
 KAI = r"C:\Windows\Fonts\simkai.ttf"
 SANS = r"C:\Windows\Fonts\msyh.ttc"
 
-# 与 app.css 的 .cover--* 一致
+# 与 tokens.css 一致：定版是水墨（白描 / 素描的渲染函数仍可用，只是没在用）
 VARIANTS = [
-    ("白描", art_png.render_baimiao, 0.68),
-    ("素描", art_png.render_sketch, 0.86),
-    ("水墨", art_png.render_wash, 0.54),
+    ("水墨", art_png.render_wash, 0.80),
 ]
 
 # 与 app.css 的 ::before 一致：(画布宽, 高, 画心高占面板的比例, 水平位置%, 垂直位置%, 渐隐方向)

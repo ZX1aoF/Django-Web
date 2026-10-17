@@ -1209,8 +1209,10 @@ input[type="radio"] {
   min-block-size: 100dvh;
 }
 
-/* 封面：浅色纸面 + 一幅竹。三种技法由 .cover--* 切换（同一构图，换渲染方式）。
-   上一版是近黑面板 + 稿纸格，读起来像制图稿，这里整个换掉。 */
+/* 封面：浅色纸面 + 一幅竹（水墨）。画心与浓度由 tokens.css 的两个令牌决定 —
+   曾经的 .cover--baimiao / .cover--sketch / .cover--wash 三选一已定版，
+   另外两段删掉了；要再挑一版就跑 `python tools/make_cover_art.py --all`，
+   然后把 tokens.css 里的 --cover-art 指过去。 */
 .auth__cover {
   position: relative;
   isolation: isolate;
@@ -1236,22 +1238,6 @@ input[type="radio"] {
   background-size: 100% 100%, auto 235%;
   background-position: 0 0, 100% 46%;
   opacity: var(--cover-art-opacity);
-}
-
-/* 素描是浅色铅笔，要比白描提得更高才看得见；水墨本身墨重，压得最低 */
-.cover--baimiao {
-  --cover-art: url("../img/cover-baimiao.svg");
-  --cover-art-opacity: 0.68;
-}
-
-.cover--sketch {
-  --cover-art: url("../img/cover-sketch.svg");
-  --cover-art-opacity: 0.86;
-}
-
-.cover--wash {
-  --cover-art: url("../img/cover-wash.svg");
-  --cover-art-opacity: 0.54;
 }
 
 /* 封面文字压在画心之上：画心在 ::before 的 -1 层 */

@@ -156,24 +156,24 @@ def render_wash():
 
     # 石头：淡墨铺底 + 柔边；再压一道不模糊的边，否则会糊成一团灰
     def rock_ops(draw):
-        fill(draw, art.ROCK, WASH, 42)
+        fill(draw, art.ROCK, WASH, 20)
         for rib in art.ROCK_RIBS:
-            stroke(draw, rib, WASH, 3.0, alpha=74)
+            stroke(draw, rib, WASH, 2.6, alpha=58)
 
     base = Image.alpha_composite(base, blur(on_layer(rock_ops), 5))
 
     def rock_edge(draw):
-        stroke(draw, art.ROCK, WASH, 1.9, alpha=88, closed=True)
+        stroke(draw, art.ROCK, WASH, 1.5, alpha=52, closed=True)
 
     base = Image.alpha_composite(base, on_layer(rock_edge))
 
-    # 竹竿：纵向渐变的切片，再乘该竿的墨色权重（老竿淡、新竿浓）
+    # 竹竿：淡墨 —— 墨竹是「竿淡叶浓」
     def culm_ops(draw):
         for culm, ink in zip(art.CULMS, art.CULM_INK):
             for t, quad in art.culm_quads(culm, count=16):
                 if max(point[1] for point in quad) < -300:
                     continue
-                alpha = int((0.40 + 0.60 * ink) * (236 - 186 * t))
+                alpha = int((0.34 + 0.30 * ink) * (236 - 186 * t))
                 fill(draw, quad, WASH, alpha)
 
     base = Image.alpha_composite(base, blur(on_layer(culm_ops), 1.6))
@@ -181,20 +181,21 @@ def render_wash():
     # 枝条
     def twig_ops(draw):
         for twig in art.TWIGS:
-            stroke(draw, twig["spine"], WASH, 3.2, alpha=int(255 * (0.34 + 0.36 * twig["ink"])))
+            stroke(draw, twig["spine"], WASH, 3.0, alpha=int(255 * (0.30 + 0.30 * twig["ink"])))
 
     base = Image.alpha_composite(base, blur(on_layer(twig_ops), 2.4))
 
-    # 竹叶：柔边垫底 + 实墨盖面 + 叶根再压一层，浓度都按该叶的墨色权重
+    # 竹叶：全画的「浓」
     def halo_ops(draw):
         for leaf in art.LEAVES:
-            fill(draw, leaf["outline"], WASH, int(58 * leaf["ink"]))
+            fill(draw, leaf["outline"], WASH, int(64 * leaf["ink"]))
 
     base = Image.alpha_composite(base, blur(on_layer(halo_ops), 7))
 
     def leaf_ops(draw):
         for leaf in art.LEAVES:
-            fill(draw, leaf["outline"], WASH, int(196 * leaf["ink"]))
+            alpha = min(255, int(256 * (0.72 + 0.28 * leaf["ink"])))
+            fill(draw, leaf["outline"], WASH, alpha)
 
     base = Image.alpha_composite(base, blur(on_layer(leaf_ops), 1.2))
 
@@ -202,25 +203,25 @@ def render_wash():
         for leaf in art.LEAVES:
             count = max(3, int(len(leaf["spine"]) * 0.5))
             outline, _ = art.frame(leaf["spine"][:count], leaf["widths"][:count])
-            fill(draw, outline, WASH, int(112 * leaf["ink"]))
+            fill(draw, outline, WASH, int(128 * leaf["ink"]))
 
     base = Image.alpha_composite(base, blur(on_layer(root_ops), 1.2))
 
     # 竹节：墨未干时点的一笔
     def node_ops(draw):
         for mark in art.NODES:
-            stroke(draw, mark, WASH, 4.0, alpha=132)
+            stroke(draw, mark, WASH, 3.2, alpha=120)
 
-    base = Image.alpha_composite(base, blur(on_layer(node_ops), 3.0))
+    base = Image.alpha_composite(base, blur(on_layer(node_ops), 2.6))
 
     def node_core(draw):
         for mark in art.NODES:
-            stroke(draw, mark, WASH, 1.7, alpha=172)
+            stroke(draw, mark, WASH, 1.4, alpha=160)
 
     base = Image.alpha_composite(base, on_layer(node_core))
 
     # 苔点
-    base = Image.alpha_composite(base, on_layer(lambda draw: draw_moss(draw, WASH, 198)))
+    base = Image.alpha_composite(base, on_layer(lambda draw: draw_moss(draw, WASH, 124)))
 
     return Image.alpha_composite(panel, base)
 

@@ -72,11 +72,13 @@
   --paper-0-fade: rgba(250, 246, 238, 0);
   --paper-1-fade: rgba(242, 236, 224, 0);
 
-  /* 封面：浅色纸面 + 一幅竹。三种技法（白描 / 素描 / 水墨）同构图，
-     由 app.css 里的 .cover--* 覆盖下面两个令牌来切换。
-     上一版是近黑面板 + 稿纸格，读起来像制图稿，已废弃。 */
-  --cover-art: url("../img/cover-baimiao.svg");
-  --cover-art-opacity: 0.68;
+  /* 封面：浅色纸面 + 一幅竹（水墨）。
+     定版选的是水墨：白描在封面尺寸下线太细、素描叠上纸色渐隐后发灰，
+     水墨的墨块在缩放后最立得住。
+     另外两种技法的渲染函数仍留在 tools/make_cover_art.py 里，
+     跑 `--all` 可重出三张再挑。 */
+  --cover-art: url("../img/cover-wash.svg");
+  --cover-art-opacity: 0.80;
   --cover-fade: var(--card-bg);
 
   /* ---------- 3. component ------------------------------------------ */

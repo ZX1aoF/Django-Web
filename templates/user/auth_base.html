@@ -10,14 +10,8 @@
 <body class="shell">
 <a class="skip" href="#main">跳到主要内容</a>
 
-{% comment %}
-封面画心由查询参数 cover 切换，取值走白名单：baimiao（白描）/ sketch（素描）/
-wash（水墨）。三张画是同一构图、不同技法，用来挑一版。
-参数缺失或不合法时回落到白描；定版之后把其余两段判断删掉即可。
-{% endcomment %}
-{% firstof request.GET.cover "baimiao" as cover_kind %}
 <div class="auth">
-    <section class="auth__cover{% if cover_kind == 'sketch' %} cover--sketch{% elif cover_kind == 'wash' %} cover--wash{% else %} cover--baimiao{% endif %}">
+    <section class="auth__cover">
         <p class="auth__kicker">语文素材管理系统</p>
         <h1 class="auth__headline">{% block headline %}把语文素材收在一处{% endblock %}</h1>
         <div class="auth__rule" aria-hidden="true"></div>
